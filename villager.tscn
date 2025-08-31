@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://bd4ajxpadb737"]
+
+[ext_resource type="Script" uid="uid://bon3qarwowvxt" path="res://villager.gd" id="1_vucva"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_vucva"]
+rings = 3
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sbtgs"]
+
+[node name="Villager" type="CharacterBody3D"]
+script = ExtResource("1_vucva")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_vucva")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_sbtgs")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]

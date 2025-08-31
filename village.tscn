@@ -1,0 +1,12 @@
+[gd_scene load_steps=4 format=3 uid="uid://c05p8ef07u6ke"]
+
+[ext_resource type="Script" uid="uid://dwa65ukqdh74k" path="res://village.gd" id="1_q5e70"]
+[ext_resource type="PackedScene" uid="uid://f027t7rayh24" path="res://camera_controller.tscn" id="2_qyljj"]
+[ext_resource type="PackedScene" uid="uid://cuxrp0pilhdin" path="res://mobile_ui.tscn" id="3_jak2h"]
+
+[node name="Village" type="Node3D"]
+script = ExtResource("1_q5e70")
+
+[node name="CameraController" parent="." instance=ExtResource("2_qyljj")]
+
+[node name="MobileUI" parent="." instance=ExtResource("3_jak2h")]
