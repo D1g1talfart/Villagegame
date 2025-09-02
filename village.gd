@@ -206,6 +206,9 @@ func spawn_villager(villager_name: String, house):
 	
 	JobManager.register_villager(villager)
 	print("Spawned villager: ", villager_name)
+	
+	# Make sure the villager connects to house signals after it's ready
+	# (This is now handled in the villager's _ready function)
 
 # Add this to Village.gd for testing
 func _input(event):

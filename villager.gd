@@ -32,6 +32,18 @@ func _ready():
 	
 	# Small delay to let NavigationServer set up
 	call_deferred("setup_navigation")
+	
+	# Connect to house signals (workplace signals are connected when job is assigned)
+	call_deferred("connect_house_signals")
+
+# Add this helper function
+func connect_house_signals():
+	if home_house and home_house.has_signal("building_moved"):
+		home_house.building_moved.connect(_on_house_moved)
+		print(villager_name, " connected to house movement signals in _ready")
+	
+func _exit_tree():
+	disconnect_from_workplace_signals()
 
 func setup_navigation():
 	if navigation_agent:
@@ -329,7 +341,7 @@ func get_kitchen() -> Node3D:
 func assign_job(job: Job):
 	# Unassign from current job first
 	if assigned_job:
-		assigned_job.unassign_villager()
+		unassign_job()  # This will also disconnect signals
 	
 	assigned_job = job
 	if job:
@@ -339,6 +351,9 @@ func assign_job(job: Job):
 		print("Work position: ", job.get_work_position())
 		print("Current villager position: ", global_position)
 		print("Distance to work: ", global_position.distance_to(job.get_work_position()))
+		
+		# Connect to workplace moved signal
+		connect_to_workplace_signals()
 		
 		# Reset work states when getting new job
 		if job.job_type == Job.JobType.FARM_WORKER:
@@ -354,6 +369,9 @@ func assign_job(job: Job):
 
 func unassign_job():
 	if assigned_job:
+		# Disconnect from workplace signals first
+		disconnect_from_workplace_signals()
+		
 		assigned_job.unassign_villager()
 		assigned_job = null
 	
@@ -367,3 +385,69 @@ func unassign_job():
 		material.albedo_color = Color.ORANGE
 	
 	print(villager_name, " job unassigned")
+	
+
+func connect_to_workplace_signals():
+	disconnect_from_workplace_signals()  # Ensure no duplicate connections
+	
+	# Connect to workplace signals
+	if assigned_job and assigned_job.workplace:
+		var workplace = assigned_job.workplace
+		if workplace.has_signal("building_moved"):
+			workplace.building_moved.connect(_on_workplace_moved)
+			print(villager_name, " connected to workplace movement signals")
+	
+	# Connect to house signals
+	if home_house and home_house.has_signal("building_moved"):
+		home_house.building_moved.connect(_on_house_moved)
+		print(villager_name, " connected to house movement signals")
+
+func disconnect_from_workplace_signals():
+	# Disconnect from workplace signals
+	if assigned_job and assigned_job.workplace:
+		var workplace = assigned_job.workplace
+		if workplace.has_signal("building_moved") and workplace.building_moved.is_connected(_on_workplace_moved):
+			workplace.building_moved.disconnect(_on_workplace_moved)
+			print(villager_name, " disconnected from workplace signals")
+	
+	# Disconnect from house signals  
+	if home_house and home_house.has_signal("building_moved") and home_house.building_moved.is_connected(_on_house_moved):
+		home_house.building_moved.disconnect(_on_house_moved)
+		print(villager_name, " disconnected from house signals")
+
+func _on_workplace_moved(building: BuildableBuilding, new_position: Vector2i):
+	print("=== WORKPLACE MOVED ===")
+	print(villager_name, "'s workplace moved to: ", new_position)
+	
+	# If we're currently walking, update our target immediately
+	if current_state == State.WALKING:
+		var new_target = assigned_job.get_work_position()
+		print("Updating navigation from ", target_position, " to ", new_target)
+		
+		# Only update if the target actually changed significantly
+		if target_position.distance_to(new_target) > 1.0:
+			print("Target changed significantly - updating navigation")
+			target_position = new_target
+			navigation_agent.target_position = new_target
+			print("New navigation target: ", navigation_agent.target_position)
+		else:
+			print("Target didn't change much - keeping current path")
+
+
+func _on_house_moved(building: BuildableBuilding, new_position: Vector2i):
+	print("=== HOUSE MOVED ===")
+	print(villager_name, "'s house moved to: ", new_position)
+	
+	# If we're currently walking, check if we're walking to the house
+	if current_state == State.WALKING:
+		var house_target = home_house.global_position + Vector3(1, 0, 0)
+		
+		# Check if we're currently walking to the house (within reasonable distance of house target)
+		if target_position.distance_to(house_target) > 1.0:
+			# We were walking to the old house location - update to new location
+			print("Updating house navigation from ", target_position, " to ", house_target)
+			target_position = house_target
+			navigation_agent.target_position = house_target
+			print("New house navigation target: ", navigation_agent.target_position)
+		else:
+			print("Not walking to house - keeping current path")
