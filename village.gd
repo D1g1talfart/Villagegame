@@ -289,6 +289,9 @@ func handle_job_assignment_click():
 func setup_navigation_region():
 	print("Setting up navigation region...")
 	
+	# Wait a frame to let all buildings with obstacles be ready
+	await get_tree().process_frame
+	
 	# Simple approach: Create a flat navigation mesh over the whole ground
 	var nav_region = NavigationRegion3D.new()
 	nav_region.name = "NavigationRegion"
@@ -317,4 +320,8 @@ func setup_navigation_region():
 	
 	nav_region.navigation_mesh = nav_mesh
 	
-	print("Navigation region created with mesh")
+	# Force navigation update to account for obstacles
+	await get_tree().process_frame
+	NavigationServer3D.map_force_update(nav_region.get_navigation_map())
+	
+	print("Navigation region created with mesh and obstacles processed")

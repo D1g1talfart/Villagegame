@@ -20,6 +20,9 @@ var target_position: Vector3
 var work_timer: float = 0.0
 var carrying_crops: int = 0
 var debug_timer: float = 0.0
+var pending_unassignment: bool = false
+var path_update_timer: float = 0.0
+var path_update_interval: float = 1.0
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var navigation_agent: NavigationAgent3D = $NavigationAgent3D
@@ -90,6 +93,21 @@ func print_debug_info():
 			print("Farm state: ", FarmWorkerState.keys()[farm_worker_state])
 
 func handle_idle_state():
+	# If we have a pending unassignment and we're not carrying anything, complete it
+	if pending_unassignment and carrying_crops == 0:
+		complete_pending_unassignment()
+		go_to_house_idle()
+		return
+	
+	# If we have a pending unassignment but still carrying crops, continue delivery
+	if pending_unassignment and carrying_crops > 0:
+		print("Pending unassignment - finishing crop delivery")
+		# Force kitchen delivery state
+		farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
+		handle_farm_worker_cycle()
+		return
+	
+	# Normal idle behavior
 	if assigned_job and assigned_job.should_work():
 		if assigned_job.job_type == Job.JobType.FARM_WORKER:
 			print("Handling farm worker cycle - State: ", FarmWorkerState.keys()[farm_worker_state])
@@ -112,12 +130,9 @@ func handle_farm_worker_cycle():
 				handle_farm_worker_cycle()
 		
 		FarmWorkerState.HARVESTING:
-			# Currently harvesting - should be in WORKING state, not IDLE
-			# This shouldn't happen, but if it does, just wait
 			print("WARNING: In HARVESTING state but also IDLE - waiting for work to complete")
 		
 		FarmWorkerState.DELIVERING:
-			# Currently delivering - shouldn't be here either
 			print("WARNING: In DELIVERING state but also IDLE")
 		
 		FarmWorkerState.GOING_TO_KITCHEN:
@@ -135,6 +150,7 @@ func handle_farm_worker_cycle():
 				farm_worker_state = FarmWorkerState.GOING_TO_FARM
 				handle_farm_worker_cycle()
 
+
 func handle_kitchen_worker_cycle():
 	# Kitchen worker stays at kitchen and converts crops
 	var kitchen = get_kitchen()
@@ -149,17 +165,25 @@ func handle_kitchen_worker_cycle():
 
 func go_to_house_idle():
 	if home_house:
-		var house_pos = home_house.global_position + Vector3(1, 0, 0)
+		var house_pos: Vector3
+		
+		# Use entry position if house has one, otherwise fallback
+		if home_house.has_method("get_entry_position"):
+			house_pos = home_house.get_entry_position()
+		else:
+			house_pos = home_house.global_position + Vector3(1, 0, 0)
+		
 		var distance_to_house = global_position.distance_to(house_pos)
 		
 		# Only walk if far from house OR if currently walking to wrong target
 		if distance_to_house > 1 or (current_state == State.WALKING and target_position.distance_to(house_pos) > 1.0):
 			print("=== WALK DEBUG ===")
-			print(villager_name, " trying to walk to ", house_pos)
+			print(villager_name, " trying to walk to house entry at ", house_pos)
 			print("Current position: ", global_position)
 			print("Distance: ", distance_to_house)
 			walk_to_position(house_pos)
 
+# Add this to the walking physics process
 func handle_walking_state(delta):
 	if not navigation_agent.is_navigation_finished():
 		var next_path_position = navigation_agent.get_next_path_position()
@@ -184,17 +208,63 @@ func handle_working_state(delta):
 
 func walk_to_position(pos: Vector3):
 	target_position = pos
-	navigation_agent.target_position = pos
 	current_state = State.WALKING
 	print("=== WALK DEBUG ===")
 	print(villager_name, " trying to walk to ", pos)
 	print("Current position: ", global_position)
 	print("Distance: ", global_position.distance_to(pos))
+	
+	# Wait for NavigationServer to process any recent changes (like teleporting)
+	await get_tree().process_frame
+	await get_tree().process_frame  # Sometimes need 2 frames for navigation updates
+	
+	navigation_agent.target_position = pos
 	print("Navigation target set to: ", navigation_agent.target_position)
 	
 	# Check if navigation agent is working
-	await get_tree().process_frame  # Wait one frame
+	await get_tree().process_frame  # Wait one more frame
 	print("Navigation path exists: ", not navigation_agent.is_navigation_finished())
+	
+	# If still no path, try manual pathfinding debugging
+	if navigation_agent.is_navigation_finished():
+		print("WARNING: No navigation path found!")
+		print("Trying to force navigation update...")
+		
+		# Force navigation map update
+		NavigationServer3D.map_force_update(navigation_agent.get_navigation_map())
+		await get_tree().process_frame
+		
+		# Try setting target again
+		navigation_agent.target_position = pos
+		await get_tree().process_frame
+		
+		print("After forced update - Navigation path exists: ", not navigation_agent.is_navigation_finished())
+		
+		if navigation_agent.is_navigation_finished():
+			print("CRITICAL: Still no path - villager may be stuck")
+			# Fallback: try moving to a nearby clear position first
+			var fallback_pos = Vector3(25, 0.1, 25)  # Center of map
+			print("Trying fallback position: ", fallback_pos)
+			navigation_agent.target_position = fallback_pos
+			
+
+# Add this new function for safe teleporting
+func safe_teleport_and_walk(teleport_pos: Vector3, walk_target: Vector3):
+	print("=== SAFE TELEPORT ===")
+	print("Teleporting from ", global_position, " to ", teleport_pos)
+	print("Then walking to ", walk_target)
+	
+	# Teleport
+	global_position = teleport_pos
+	
+	# Wait for physics/navigation to update
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# Now try to walk
+	walk_to_position(walk_target)
+	
+
 
 func _on_target_reached():
 	print(villager_name, " reached target!")
@@ -235,7 +305,7 @@ func handle_farm_worker_arrival():
 		
 		FarmWorkerState.GOING_TO_KITCHEN:
 			# Arrived near kitchen - teleport to work spot and deliver
-			if kitchen and global_position.distance_to(kitchen.get_work_position()) < 2.0:
+			if kitchen and global_position.distance_to(kitchen.global_position) < 2.0:
 				# TELEPORT to actual kitchen work spot
 				if kitchen.has_method("get_actual_work_spot"):
 					global_position = kitchen.get_actual_work_spot()
@@ -246,7 +316,7 @@ func handle_farm_worker_arrival():
 
 func handle_kitchen_worker_arrival():
 	var kitchen = get_kitchen()
-	if kitchen and global_position.distance_to(kitchen.get_work_position()) < 2.0:
+	if kitchen and global_position.distance_to(kitchen.global_position) < 2.0:
 		# TELEPORT to actual kitchen work spot
 		if kitchen.has_method("get_actual_work_spot"):
 			global_position = kitchen.get_actual_work_spot()
@@ -309,26 +379,45 @@ func perform_kitchen_work():
 		else:
 			print(villager_name, " couldn't convert - no crops or storage full")
 
+# Update the deliver_crops_to_kitchen function
+# Update the deliver_crops_to_kitchen function
 func deliver_crops_to_kitchen():
 	var kitchen = get_kitchen()
 	if kitchen and kitchen.has_method("add_crops") and carrying_crops > 0:
 		if kitchen.add_crops(carrying_crops):
 			print(villager_name, " delivered ", carrying_crops, " crop(s) to kitchen")
 			carrying_crops = 0
-			farm_worker_state = FarmWorkerState.GOING_TO_FARM
 			
 			# Visual feedback - back to normal color
 			var material = mesh_instance.material_override as StandardMaterial3D
 			if material:
 				material.albedo_color = Color.ORANGE
 			
-			# TELEPORT back outside kitchen obstacle before pathfinding
+			# Check if we have a pending unassignment
+			if pending_unassignment:
+				complete_pending_unassignment()
+				
+				# Use safe teleport and walk for going home
+				if kitchen.has_method("get_work_position") and home_house:
+					var safe_pos = kitchen.get_work_position()
+					var home_pos = home_house.global_position + Vector3(1, 0, 0)
+					safe_teleport_and_walk(safe_pos, home_pos)
+				else:
+					go_to_house_idle()
+				return
+			
+			# Normal flow - continue working
+			farm_worker_state = FarmWorkerState.GOING_TO_FARM
+			
+			# ALWAYS teleport back outside kitchen obstacle first
 			if kitchen.has_method("get_work_position"):
 				global_position = kitchen.get_work_position()
 				print("Teleported back outside kitchen: ", global_position)
+			
 		else:
 			print("Kitchen storage full!")
-			go_to_house_idle()
+			# Handle failed delivery with pending unassignment...
+			# (similar pattern as above)
 
 func get_kitchen() -> Node3D:
 	# Find the kitchen in the scene
@@ -369,23 +458,64 @@ func assign_job(job: Job):
 
 func unassign_job():
 	if assigned_job:
-		# Disconnect from workplace signals first
+		# Check if villager is carrying crops and should finish delivery
+		if carrying_crops > 0:
+			print("=== SMART UNASSIGNMENT ===")
+			print(villager_name, " is carrying ", carrying_crops, " crops")
+			print("Will finish delivery before going home")
+			pending_unassignment = true
+			# Don't fully unassign yet - let them finish their delivery
+			return
+		else:
+			print("=== IMMEDIATE UNASSIGNMENT ===")
+			print(villager_name, " not carrying anything - going home immediately")
+			# Disconnect from workplace signals first
+			disconnect_from_workplace_signals()
+			
+			assigned_job.unassign_villager()
+			assigned_job = null
+			
+			# Reset states
+			farm_worker_state = FarmWorkerState.GOING_TO_FARM
+			carrying_crops = 0
+			pending_unassignment = false
+			
+			# Reset color
+			var material = mesh_instance.material_override as StandardMaterial3D
+			if material:
+				material.albedo_color = Color.ORANGE
+			
+			# If currently walking, redirect to home immediately
+			if current_state == State.WALKING:
+				print("Redirecting to home immediately")
+				go_to_house_idle()
+			
+			print(villager_name, " job unassigned immediately")
+	
+	
+func complete_pending_unassignment():
+	if pending_unassignment:
+		print("=== COMPLETING PENDING UNASSIGNMENT ===")
+		print(villager_name, " finished delivery, now fully unassigning")
+		
+		# Disconnect from workplace signals
 		disconnect_from_workplace_signals()
 		
-		assigned_job.unassign_villager()
+		if assigned_job:
+			assigned_job.unassign_villager()
 		assigned_job = null
-	
-	# Reset states
-	farm_worker_state = FarmWorkerState.GOING_TO_FARM
-	carrying_crops = 0
-	
-	# Reset color
-	var material = mesh_instance.material_override as StandardMaterial3D
-	if material:
-		material.albedo_color = Color.ORANGE
-	
-	print(villager_name, " job unassigned")
-	
+		
+		# Reset states
+		farm_worker_state = FarmWorkerState.GOING_TO_FARM
+		carrying_crops = 0
+		pending_unassignment = false
+		
+		# Reset color
+		var material = mesh_instance.material_override as StandardMaterial3D
+		if material:
+			material.albedo_color = Color.ORANGE
+		
+		print(villager_name, " fully unassigned after completing delivery")
 
 func connect_to_workplace_signals():
 	disconnect_from_workplace_signals()  # Ensure no duplicate connections
