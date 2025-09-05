@@ -1,4 +1,3 @@
-# Complete Villager.gd with improved workflow
 extends CharacterBody3D
 class_name Villager
 
@@ -19,27 +18,31 @@ var home_house: BuildableBuilding
 var target_position: Vector3
 var work_timer: float = 0.0
 var carrying_crops: int = 0
-var debug_timer: float = 0.0
 var pending_unassignment: bool = false
-var path_update_timer: float = 0.0
-var path_update_interval: float = 1.0
+var walking_toward: String = ""
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var navigation_agent: NavigationAgent3D = $NavigationAgent3D
 
 func _ready():
+	setup_collision_layers()  # Add this line
 	setup_appearance()
-	# Connect the navigation signal
 	if navigation_agent:
 		navigation_agent.target_reached.connect(_on_target_reached)
-	
-	# Small delay to let NavigationServer set up
 	call_deferred("setup_navigation")
-	
-	# Connect to house signals (workplace signals are connected when job is assigned)
 	call_deferred("connect_house_signals")
 
-# Add this helper function
+func setup_collision_layers():
+	# Put villagers on their own collision layer (layer 3)
+	collision_layer = 4  # Layer 3 (binary 100 = decimal 4)
+	
+	# Villagers should only collide with ground (layer 1)
+	# NOT with other villagers (layer 3) or buildings (layer 2)
+	collision_mask = 1   # Only ground layer
+	
+	print("Villager collision setup - Layer: ", collision_layer, " Mask: ", collision_mask)
+
+
 func connect_house_signals():
 	if home_house and home_house.has_signal("building_moved"):
 		home_house.building_moved.connect(_on_house_moved)
@@ -48,15 +51,28 @@ func connect_house_signals():
 func _exit_tree():
 	disconnect_from_workplace_signals()
 
+# villager.gd - Add this to setup_navigation()
 func setup_navigation():
 	if navigation_agent:
 		navigation_agent.target_position = global_position
-		print("Navigation setup for ", villager_name)
+		
+		# Navigation settings
+		navigation_agent.path_desired_distance = 0.5
+		navigation_agent.target_desired_distance = 0.5
+		navigation_agent.radius = 0.3  # Villager radius
+		navigation_agent.height = 1.6
+		navigation_agent.max_speed = movement_speed
+		
+		# Enable avoidance so villagers try to go around each other
+		navigation_agent.avoidance_enabled = true
+		navigation_agent.avoidance_layers = 4  # Avoid other villagers (layer 3)
+		navigation_agent.avoidance_mask = 4    # Be avoided by other villagers
+		
+		print("Navigation setup for ", villager_name, " with avoidance enabled")
 	else:
 		print("ERROR: No NavigationAgent3D found for ", villager_name)
 
 func setup_appearance():
-	# Simple villager appearance
 	if not mesh_instance.mesh:
 		var capsule = CapsuleMesh.new()
 		capsule.radius = 0.3
@@ -64,7 +80,6 @@ func setup_appearance():
 		mesh_instance.mesh = capsule
 	mesh_instance.position = Vector3(0, 0.8, 0)
 	
-	# Give villager a color
 	var material = StandardMaterial3D.new()
 	material.albedo_color = Color.ORANGE
 	mesh_instance.material_override = material
@@ -78,7 +93,6 @@ func _physics_process(delta):
 		State.WORKING:
 			handle_working_state(delta)
 	
-	# Keep villager on the ground
 	if global_position.y != 0.1:
 		global_position.y = 0.1
 
@@ -122,42 +136,35 @@ func handle_farm_worker_cycle():
 	match farm_worker_state:
 		FarmWorkerState.GOING_TO_FARM:
 			if carrying_crops == 0:
-				var farm_pos = assigned_job.get_work_position()
-				if global_position.distance_to(farm_pos) > 1.5:
-					walk_to_position(farm_pos)
+				var farm = assigned_job.workplace
+				if farm and farm.has_method("get_work_position"):
+					var farm_entry = farm.get_work_position()
+					if global_position.distance_to(farm_entry) > 1.5:
+						print("Walking to farm entry point: ", farm_entry)
+						walk_to_position(farm_entry, "farm")  # Explicitly specify destination
 			else:
 				farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
 				handle_farm_worker_cycle()
 		
-		FarmWorkerState.HARVESTING:
-			print("WARNING: In HARVESTING state but also IDLE - waiting for work to complete")
-		
-		FarmWorkerState.DELIVERING:
-			print("WARNING: In DELIVERING state but also IDLE")
-		
 		FarmWorkerState.GOING_TO_KITCHEN:
 			if carrying_crops > 0:
 				var kitchen = get_kitchen()
-				if kitchen:
-					var kitchen_pos = kitchen.global_position
-					if global_position.distance_to(kitchen_pos) > 1.5:
-						walk_to_position(kitchen_pos)
-				else:
-					print("ERROR: No kitchen found!")
-					go_to_house_idle()
+				if kitchen and kitchen.has_method("get_work_position"):
+					var kitchen_entry = kitchen.get_work_position()
+					if global_position.distance_to(kitchen_entry) > 1.5:
+						print("Walking to kitchen entry point: ", kitchen_entry)
+						walk_to_position(kitchen_entry, "kitchen")  # Explicitly specify destination
 			else:
-				# Not carrying crops, go back to farm
 				farm_worker_state = FarmWorkerState.GOING_TO_FARM
 				handle_farm_worker_cycle()
 
 
 func handle_kitchen_worker_cycle():
-	# Kitchen worker stays at kitchen and converts crops
 	var kitchen = get_kitchen()
 	if kitchen:
-		var kitchen_pos = kitchen.global_position
+		var kitchen_pos = kitchen.get_work_position()
 		if global_position.distance_to(kitchen_pos) > 1.5:
-			walk_to_position(kitchen_pos)
+			walk_to_position(kitchen_pos, "kitchen")  # Explicitly specify destination
 		elif kitchen.can_convert_crops():
 			start_working()
 	else:
@@ -181,9 +188,9 @@ func go_to_house_idle():
 			print(villager_name, " trying to walk to house entry at ", house_pos)
 			print("Current position: ", global_position)
 			print("Distance: ", distance_to_house)
-			walk_to_position(house_pos)
+			walk_to_position(house_pos, "house")
 
-# Add this to the walking physics process
+
 func handle_walking_state(delta):
 	if not navigation_agent.is_navigation_finished():
 		var next_path_position = navigation_agent.get_next_path_position()
@@ -192,12 +199,12 @@ func handle_walking_state(delta):
 		velocity = direction * movement_speed
 		move_and_slide()
 		
-		# Face movement direction - ONLY rotate around Y-axis (no tipping)
 		if velocity.length() > 0.1:
 			var flat_direction = Vector3(direction.x, 0, direction.z).normalized()
 			if flat_direction.length() > 0.1:
 				var target_rotation = atan2(flat_direction.x, flat_direction.z)
 				rotation.y = target_rotation
+
 
 func handle_working_state(delta):
 	work_timer -= delta
@@ -206,75 +213,69 @@ func handle_working_state(delta):
 		print("Work timer finished! Calling complete_work()")
 		complete_work()
 
-func walk_to_position(pos: Vector3):
-	target_position = pos
-	current_state = State.WALKING
-	print("=== WALK DEBUG ===")
-	print(villager_name, " trying to walk to ", pos)
-	print("Current position: ", global_position)
-	print("Distance: ", global_position.distance_to(pos))
-	
-	# Wait for NavigationServer to process any recent changes (like teleporting)
-	await get_tree().process_frame
-	await get_tree().process_frame  # Sometimes need 2 frames for navigation updates
-	
-	navigation_agent.target_position = pos
-	print("Navigation target set to: ", navigation_agent.target_position)
-	
-	# Check if navigation agent is working
-	await get_tree().process_frame  # Wait one more frame
-	print("Navigation path exists: ", not navigation_agent.is_navigation_finished())
-	
-	# If still no path, try manual pathfinding debugging
-	if navigation_agent.is_navigation_finished():
-		print("WARNING: No navigation path found!")
-		print("Trying to force navigation update...")
-		
-		# Force navigation map update
-		NavigationServer3D.map_force_update(navigation_agent.get_navigation_map())
-		await get_tree().process_frame
-		
-		# Try setting target again
-		navigation_agent.target_position = pos
-		await get_tree().process_frame
-		
-		print("After forced update - Navigation path exists: ", not navigation_agent.is_navigation_finished())
-		
-		if navigation_agent.is_navigation_finished():
-			print("CRITICAL: Still no path - villager may be stuck")
-			# Fallback: try moving to a nearby clear position first
-			var fallback_pos = Vector3(25, 0.1, 25)  # Center of map
-			print("Trying fallback position: ", fallback_pos)
-			navigation_agent.target_position = fallback_pos
-			
-
 # Add this new function for safe teleporting
-func safe_teleport_and_walk(teleport_pos: Vector3, walk_target: Vector3):
+# villager.gd - Replace the safe_teleport_and_walk function
+func safe_teleport_and_walk(teleport_pos: Vector3, walk_target: Vector3, destination_type: String = ""):
 	print("=== SAFE TELEPORT ===")
 	print("Teleporting from ", global_position, " to ", teleport_pos)
-	print("Then walking to ", walk_target)
+	print("Then walking to ", walk_target, " (", destination_type, ")")
+	
+	# Stop current movement
+	current_state = State.IDLE
+	velocity = Vector3.ZERO
+	walking_toward = ""
 	
 	# Teleport
 	global_position = teleport_pos
+	global_position.y = 0.1
 	
-	# Wait for physics/navigation to update
+	# Force navigation system to acknowledge the new position
+	navigation_agent.target_position = global_position
+	
+	# Wait multiple frames for navigation to fully update
+	for i in range(3):
+		await get_tree().process_frame
+	
+	# Force navigation map update
+	NavigationServer3D.map_force_update(navigation_agent.get_navigation_map())
 	await get_tree().process_frame
+	
+	print("Teleport complete, now walking to: ", walk_target)
+	walk_to_position(walk_target, destination_type)
+
+# Also improve the regular walk_to_position function
+func walk_to_position(pos: Vector3, destination_type: String = ""):
+	target_position = pos
+	current_state = State.WALKING
+	walking_toward = destination_type
+	
+	print("=== WALK DEBUG ===")
+	print(villager_name, " walking from ", global_position, " to ", pos)
+	print("Walking toward: ", walking_toward)
+	print("Distance: ", global_position.distance_to(pos))
+	
+	global_position.y = 0.1
+	pos.y = 0.1
+	navigation_agent.target_position = pos
+	
 	await get_tree().process_frame
 	
-	# Now try to walk
-	walk_to_position(walk_target)
-	
+	if navigation_agent.is_navigation_finished():
+		print("WARNING: No navigation path found")
+		current_state = State.IDLE
+		walking_toward = ""
+	else:
+		print("Navigation path found successfully")
 
 
 func _on_target_reached():
-	print(villager_name, " reached target!")
+	print(villager_name, " reached target! Was walking toward: ", walking_toward)
 	current_state = State.IDLE
+	walking_toward = ""
 	arrived_at_destination.emit()
-	
-	# Force position to be on ground
 	global_position.y = 0.1
-	
 	check_arrival_action()
+
 
 func check_arrival_action():
 	if assigned_job:
@@ -290,29 +291,25 @@ func handle_farm_worker_arrival():
 	
 	match farm_worker_state:
 		FarmWorkerState.GOING_TO_FARM:
-			# Arrived near farm - teleport to work spot and start working
-			if farm and global_position.distance_to(assigned_job.get_work_position()) < 2.0:
-				if farm.can_harvest():
-					# TELEPORT to actual work spot
-					if farm.has_method("get_actual_work_spot"):
-						global_position = farm.get_actual_work_spot()
-						print("Teleported to farm work spot: ", global_position)
-					
-					farm_worker_state = FarmWorkerState.HARVESTING
-					start_working()
-				else:
-					print("Farm not ready for harvest, waiting...")
+			if farm and farm.has_method("get_work_position"):
+				var farm_entry = farm.get_work_position()
+				if global_position.distance_to(farm_entry) < 2.0:
+					if farm.can_harvest():
+						print("At farm entry, teleporting to work spot")
+						var work_spot = farm.get_actual_work_spot()
+						global_position = work_spot
+						farm_worker_state = FarmWorkerState.HARVESTING
+						start_working()
 		
 		FarmWorkerState.GOING_TO_KITCHEN:
-			# Arrived near kitchen - teleport to work spot and deliver
-			if kitchen and global_position.distance_to(kitchen.global_position) < 2.0:
-				# TELEPORT to actual kitchen work spot
-				if kitchen.has_method("get_actual_work_spot"):
-					global_position = kitchen.get_actual_work_spot()
-					print("Teleported to kitchen work spot: ", global_position)
-				
-				farm_worker_state = FarmWorkerState.DELIVERING
-				deliver_crops_to_kitchen()
+			if kitchen and kitchen.has_method("get_work_position"):
+				var kitchen_entry = kitchen.get_work_position()
+				if global_position.distance_to(kitchen_entry) < 2.0:
+					print("At kitchen entry, teleporting to work spot")
+					var work_spot = kitchen.get_actual_work_spot()
+					global_position = work_spot
+					farm_worker_state = FarmWorkerState.DELIVERING
+					deliver_crops_to_kitchen()
 
 func handle_kitchen_worker_arrival():
 	var kitchen = get_kitchen()
@@ -360,16 +357,17 @@ func perform_farm_work():
 			carrying_crops = 1
 			farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
 			
-			# Visual feedback - green when carrying crops
+			# Visual feedback
 			var material = mesh_instance.material_override as StandardMaterial3D
 			if material:
 				material.albedo_color = Color.GREEN
 			
-			# TELEPORT back outside farm obstacle before pathfinding
-			global_position = assigned_job.get_work_position()
-			print("Teleported back outside farm: ", global_position)
-			
-			print(villager_name, " finished harvesting, teleported outside farm")
+			print(villager_name, " finished harvesting, using safe teleport to exit")
+			var kitchen = get_kitchen()
+			if kitchen:
+				var farm_exit = farm.get_work_position()
+				var kitchen_entry = kitchen.get_work_position()
+				safe_teleport_and_walk(farm_exit, kitchen_entry, "kitchen")
 
 func perform_kitchen_work():
 	var kitchen = get_kitchen()
@@ -379,8 +377,6 @@ func perform_kitchen_work():
 		else:
 			print(villager_name, " couldn't convert - no crops or storage full")
 
-# Update the deliver_crops_to_kitchen function
-# Update the deliver_crops_to_kitchen function
 func deliver_crops_to_kitchen():
 	var kitchen = get_kitchen()
 	if kitchen and kitchen.has_method("add_crops") and carrying_crops > 0:
@@ -388,36 +384,27 @@ func deliver_crops_to_kitchen():
 			print(villager_name, " delivered ", carrying_crops, " crop(s) to kitchen")
 			carrying_crops = 0
 			
-			# Visual feedback - back to normal color
+			# Visual feedback
 			var material = mesh_instance.material_override as StandardMaterial3D
 			if material:
 				material.albedo_color = Color.ORANGE
 			
-			# Check if we have a pending unassignment
+			# Handle pending unassignment
 			if pending_unassignment:
 				complete_pending_unassignment()
-				
-				# Use safe teleport and walk for going home
-				if kitchen.has_method("get_work_position") and home_house:
-					var safe_pos = kitchen.get_work_position()
-					var home_pos = home_house.global_position + Vector3(1, 0, 0)
-					safe_teleport_and_walk(safe_pos, home_pos)
-				else:
-					go_to_house_idle()
+				if home_house:
+					var kitchen_exit = kitchen.get_work_position()
+					var home_entry = home_house.get_entry_position()
+					safe_teleport_and_walk(kitchen_exit, home_entry, "house")
 				return
 			
-			# Normal flow - continue working
+			# Continue working - teleport to kitchen exit then walk to farm
 			farm_worker_state = FarmWorkerState.GOING_TO_FARM
-			
-			# ALWAYS teleport back outside kitchen obstacle first
-			if kitchen.has_method("get_work_position"):
-				global_position = kitchen.get_work_position()
-				print("Teleported back outside kitchen: ", global_position)
-			
-		else:
-			print("Kitchen storage full!")
-			# Handle failed delivery with pending unassignment...
-			# (similar pattern as above)
+			var farm = assigned_job.workplace
+			if farm:
+				var kitchen_exit = kitchen.get_work_position()
+				var farm_entry = farm.get_work_position()
+				safe_teleport_and_walk(kitchen_exit, farm_entry, "farm")
 
 func get_kitchen() -> Node3D:
 	# Find the kitchen in the scene
@@ -429,17 +416,21 @@ func get_kitchen() -> Node3D:
 
 func assign_job(job: Job):
 	# Unassign from current job first
-	if assigned_job:
-		unassign_job()  # This will also disconnect signals
+	if assigned_job and assigned_job != job:
+		unassign_job()
+	
+	# Unassign any other villager from this job
+	if job.assigned_villager and job.assigned_villager != self:
+		print("WARNING: Job already has worker ", job.assigned_villager.villager_name, " - unassigning them")
+		job.assigned_villager.unassign_job()
 	
 	assigned_job = job
 	if job:
 		job.assign_villager(self)
-		print("=== JOB ASSIGNED DEBUG ===")
+		print("=== JOB ASSIGNED ===")
 		print(villager_name, " assigned to job: ", job.job_type)
 		print("Work position: ", job.get_work_position())
 		print("Current villager position: ", global_position)
-		print("Distance to work: ", global_position.distance_to(job.get_work_position()))
 		
 		# Connect to workplace moved signal
 		connect_to_workplace_signals()
@@ -455,6 +446,7 @@ func assign_job(job: Job):
 				material.albedo_color = Color.ORANGE
 	else:
 		print(villager_name, " unassigned from job")
+
 
 func unassign_job():
 	if assigned_job:
@@ -548,36 +540,43 @@ func disconnect_from_workplace_signals():
 func _on_workplace_moved(building: BuildableBuilding, new_position: Vector2i):
 	print("=== WORKPLACE MOVED ===")
 	print(villager_name, "'s workplace moved to: ", new_position)
+	print("Currently walking toward: ", walking_toward)
 	
-	# If we're currently walking, update our target immediately
-	if current_state == State.WALKING:
-		var new_target = assigned_job.get_work_position()
-		print("Updating navigation from ", target_position, " to ", new_target)
+	# Only update navigation if we were walking to the workplace
+	if current_state == State.WALKING and (walking_toward == "farm" or walking_toward == "kitchen"):
+		var new_target = Vector3.ZERO
 		
-		# Only update if the target actually changed significantly
-		if target_position.distance_to(new_target) > 1.0:
-			print("Target changed significantly - updating navigation")
+		if walking_toward == "farm" and building == assigned_job.workplace:
+			new_target = assigned_job.get_work_position()
+		elif walking_toward == "kitchen" and building.has_method("is_kitchen"):
+			new_target = building.get_work_position()
+		
+		if new_target != Vector3.ZERO and target_position.distance_to(new_target) > 1.0:
+			print("Redirecting from ", target_position, " to ", new_target)
 			target_position = new_target
 			navigation_agent.target_position = new_target
-			print("New navigation target: ", navigation_agent.target_position)
 		else:
-			print("Target didn't change much - keeping current path")
-
+			print("Workplace moved but target unchanged or very close")
+	else:
+		if current_state == State.WALKING:
+			print("Walking toward '", walking_toward, "' - not affected by workplace move")
+		else:
+			print("Not walking - workplace move doesn't affect villager")
 
 func _on_house_moved(building: BuildableBuilding, new_position: Vector2i):
 	print("=== HOUSE MOVED ===")
 	print(villager_name, "'s house moved to: ", new_position)
+	print("Currently walking toward: ", walking_toward)
 	
-	# If we're currently walking, check if we're walking to the house
-	if current_state == State.WALKING:
-		var house_target = home_house.global_position + Vector3(1, 0, 0)
-		
-		# Check if we're currently walking to the house (within reasonable distance of house target)
-		if target_position.distance_to(house_target) > 1.0:
-			# We were walking to the old house location - update to new location
-			print("Updating house navigation from ", target_position, " to ", house_target)
-			target_position = house_target
-			navigation_agent.target_position = house_target
-			print("New house navigation target: ", navigation_agent.target_position)
+	# Only update navigation if we were specifically walking to the house
+	if current_state == State.WALKING and walking_toward == "house":
+		print("Was walking to house - redirecting to new house location")
+		var new_house_target = building.get_entry_position()
+		target_position = new_house_target
+		navigation_agent.target_position = new_house_target
+		print("Updated navigation to new house position: ", new_house_target)
+	else:
+		if current_state == State.WALKING:
+			print("Walking toward '", walking_toward, "' - not affected by house move")
 		else:
-			print("Not walking to house - keeping current path")
+			print("Not walking - house move doesn't affect villager")

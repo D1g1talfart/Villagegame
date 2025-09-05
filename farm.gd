@@ -29,26 +29,29 @@ func setup_navigation_obstacle():
 	nav_obstacle.position = Vector3(1, 0, 1)  # Center of 2x2 farm
 	print("Farm navigation obstacle created with radius: ", nav_obstacle.radius)
 
+# farm.gd - Fix work positions to be clearly outside obstacle
 func setup_work_positions():
-	var center = Vector3.ZERO
+	# Farm is 2x2 with obstacle radius 1.5 centered at (1, 0, 1)
+	# Work positions need to be at least 2.0 units from obstacle center
+	var obstacle_center = Vector3(1, 0, 1)  # Center of 2x2 farm
 	work_positions = [
-		center + Vector3(2.5, 0, 0),    # Right side
-		center + Vector3(-1.5, 0, 0),   # Left side
-		center + Vector3(0, 0, 1.5),    # Front
-		center + Vector3(0, 0, -1.5)    # Back
+		obstacle_center + Vector3(1.0, 0, 0),    # Right side - well outside
+		obstacle_center + Vector3(-1.0, 0, 0),   # Left side - well outside  
+		obstacle_center + Vector3(0, 0, 1.0),    # Front - well outside
+		obstacle_center + Vector3(0, 0, -1.0)    # Back - well outside
 	]
+	print("Farm work positions set outside obstacle:")
+	for i in range(work_positions.size()):
+		print("  Position ", i, ": ", work_positions[i])
 
-# In farm.gd
 func get_work_position() -> Vector3:
 	if work_positions.is_empty():
-		return global_position
-	return global_position + work_positions[0]
+		return global_position + Vector3(2.0, 0, 0)  # Fallback - right side
+	return global_position + work_positions[0]  # Use right side (clearly outside)
 
 func get_actual_work_spot() -> Vector3:
-	# Actual work location - center of farm (for teleporting when working)
-	var work_spot = global_position + Vector3(1, 0, 1)  # Center of 2x2 farm
-	print("Farm actual work spot: ", work_spot)
-	return work_spot
+	# This is where villager teleports TO when working (inside farm)
+	return global_position + Vector3(1, 0, 1)  # Center of 2x2 farm
 
 func can_harvest() -> bool:
 	# Always true - unlimited resources!

@@ -1,4 +1,3 @@
-# Complete corrected Village.gd
 extends Node3D
 
 @onready var camera_controller = $CameraController
@@ -8,7 +7,17 @@ var farm_scene = preload("res://Farm.tscn")
 var house_scene = preload("res://House.tscn")
 var villager_scene = preload("res://Villager.tscn")
 
+var villager_names: Array[String] = [
+	"Bob", "Alice", "Charlie", "Diana", "Edward", "Fiona", "George", "Hannah",
+	"Isaac", "Julia", "Kevin", "Luna", "Marcus", "Nina", "Oscar", "Petra",
+	"Quinn", "Rosa", "Samuel", "Tessa", "Ulrich", "Vera", "Walter", "Xara",
+	"York", "Zara", "Alex", "Blake", "Casey", "Drew", "Emery", "Finley"
+]
+var next_villager_index: int = 0 
+
+
 func _ready():
+	add_to_group("village")
 	setup_lighting()
 	generate_map()
 	setup_ground_collision()
@@ -17,6 +26,10 @@ func _ready():
 	setup_build_mode()
 	spawn_initial_buildings()
 	setup_jobs_and_villagers()
+	
+	# Connect to house building signal
+	BuildModeManager.house_built.connect(_on_house_built)
+
 
 func setup_lighting():
 	var sun_light = DirectionalLight3D.new()
@@ -128,6 +141,7 @@ func setup_mobile_controls():
 	if mobile_ui and camera_controller:
 		mobile_ui.zoom_in_pressed.connect(_on_mobile_zoom_in)
 		mobile_ui.zoom_out_pressed.connect(_on_mobile_zoom_out)
+		mobile_ui.build_mode_toggled.connect(_on_mobile_build_mode_toggled)
 
 func _on_mobile_zoom_in():
 	camera_controller.camera.size = clamp(camera_controller.camera.size - 2.0, 
@@ -138,6 +152,11 @@ func _on_mobile_zoom_out():
 	camera_controller.camera.size = clamp(camera_controller.camera.size + 2.0, 
 										 camera_controller.min_zoom, 
 										 camera_controller.max_zoom)
+										
+func _on_mobile_build_mode_toggled():
+	# The mobile UI already calls BuildModeManager.toggle_build_mode()
+	# This is just for any additional logic you might want
+	print("Build mode toggled via mobile UI")
 
 func setup_build_mode():
 	BuildModeManager.build_mode_toggled.connect(_on_build_mode_toggled)
@@ -177,9 +196,36 @@ func setup_building_jobs():
 func spawn_initial_villagers():
 	var house = find_house_building()
 	if house:
-		spawn_villager("Bob", house)
+		# Use the naming system instead of hardcoding "Bob"
+		var first_villager_name = get_next_villager_name()  # This will be "Bob"
+		spawn_villager(first_villager_name, house)
 	else:
 		print("Warning: No house found for villager spawn")
+
+
+func _on_house_built(house_building: BuildableBuilding):
+	print("=== NEW HOUSE BUILT ===")
+	print("House position: ", house_building.position)
+	
+	# Generate villager name
+	var villager_name = get_next_villager_name()
+	
+	# Spawn villager at the new house
+	spawn_villager(villager_name, house_building)
+	
+	print("New villager ", villager_name, " spawned for new house!")
+
+func get_next_villager_name() -> String:
+	if next_villager_index < villager_names.size():
+		var name = villager_names[next_villager_index]
+		next_villager_index += 1
+		print("Assigned name: ", name, " (index was ", next_villager_index - 1, ")")
+		return name
+	else:
+		# Fallback to numbered names if we run out
+		var fallback_name = "Villager " + str(next_villager_index + 1)
+		next_villager_index += 1
+		return fallback_name
 
 func find_kitchen_building():
 	for child in get_children():
@@ -218,6 +264,11 @@ func _input(event):
 	# TEST: Press 'T' to create a simple UI in code
 	if event.is_action_pressed("ui_accept"):
 		create_test_ui()
+	
+	if event.is_action_pressed("ui_up"):
+		BuildingShop.set_player_level(BuildingShop.player_level + 1)
+	elif event.is_action_pressed("ui_down") and BuildingShop.player_level > 1:
+		BuildingShop.set_player_level(BuildingShop.player_level - 1)
 	
 	if not BuildModeManager.is_build_mode_active:
 		if event is InputEventMouseButton and event.pressed:
@@ -286,33 +337,42 @@ func handle_job_assignment_click():
 		else:
 			print("Clicked object is not a building: ", clicked_object)
 
+# village.gd - Replace setup_navigation_region() with this improved version
 func setup_navigation_region():
 	print("Setting up navigation region...")
 	
-	# Wait a frame to let all buildings with obstacles be ready
+	# Wait for all buildings to be ready with their obstacles
+	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	# Simple approach: Create a flat navigation mesh over the whole ground
 	var nav_region = NavigationRegion3D.new()
 	nav_region.name = "NavigationRegion"
 	add_child(nav_region)
 	
-	# Create navigation mesh
+	# Create navigation mesh with better settings
 	var nav_mesh = NavigationMesh.new()
 	
-	# Create a simple box mesh for navigation
+	# Configure navigation mesh for obstacle avoidance
+	nav_mesh.cell_size = 0.25  # Smaller cells for better precision around obstacles
+	nav_mesh.cell_height = 0.1
+	nav_mesh.agent_height = 1.6
+	nav_mesh.agent_radius = 0.3
+	nav_mesh.agent_max_climb = 0.1
+	nav_mesh.agent_max_slope = 45.0
+	
+	# Create vertices for the entire ground plane
 	var vertices = PackedVector3Array()
 	var indices = PackedInt32Array()
 	
-	# Simple ground plane for navigation (49x49 map)
-	vertices.append(Vector3(0, 0, 0))      # Bottom-left
-	vertices.append(Vector3(49, 0, 0))     # Bottom-right  
-	vertices.append(Vector3(49, 0, 49))    # Top-right
-	vertices.append(Vector3(0, 0, 49))     # Top-left
+	# Ground plane covering the entire map
+	vertices.append(Vector3(-1, 0, -1))      # Extend slightly beyond map bounds
+	vertices.append(Vector3(50, 0, -1))
+	vertices.append(Vector3(50, 0, 50))
+	vertices.append(Vector3(-1, 0, 50))
 	
-	# Two triangles to make a rectangle
-	indices.append_array([0, 1, 2])        # First triangle
-	indices.append_array([0, 2, 3])        # Second triangle
+	# Two triangles for the rectangle
+	indices.append_array([0, 1, 2])
+	indices.append_array([0, 2, 3])
 	
 	nav_mesh.vertices = vertices
 	nav_mesh.polygons.clear()
@@ -320,8 +380,44 @@ func setup_navigation_region():
 	
 	nav_region.navigation_mesh = nav_mesh
 	
-	# Force navigation update to account for obstacles
+	# CRITICAL: Force navigation to account for all obstacles
 	await get_tree().process_frame
 	NavigationServer3D.map_force_update(nav_region.get_navigation_map())
 	
-	print("Navigation region created with mesh and obstacles processed")
+	# Wait for obstacles to be processed
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	print("Navigation region created - obstacles should now be avoided")
+	
+	# Debug: Print obstacle info
+	print("=== OBSTACLE DEBUG ===")
+	var all_obstacles = get_tree().get_nodes_in_group("navigation_obstacles")
+	print("Found ", all_obstacles.size(), " navigation obstacles")
+
+
+func debug_navigation_obstacles():
+	print("=== NAVIGATION OBSTACLE DEBUG ===")
+	
+	# Find all NavigationObstacle3D nodes
+	var obstacles = []
+	find_navigation_obstacles_recursive(self, obstacles)
+	
+	print("Found ", obstacles.size(), " NavigationObstacle3D nodes:")
+	for obstacle in obstacles:
+		print("  - ", obstacle.get_parent().name, " at ", obstacle.global_position)
+		print("    Radius: ", obstacle.radius, " Height: ", obstacle.height)
+		print("    Enabled: ", not obstacle.is_disabled())
+	
+	# Check if navigation region can see them
+	var nav_region = find_child("NavigationRegion") as NavigationRegion3D
+	if nav_region:
+		var nav_map = nav_region.get_navigation_map()
+		print("Navigation map ID: ", nav_map)
+		print("Map is valid: ", nav_map != RID())
+	
+func find_navigation_obstacles_recursive(node: Node, obstacles: Array):
+	if node is NavigationObstacle3D:
+		obstacles.append(node)
+	for child in node.get_children():
+		find_navigation_obstacles_recursive(child, obstacles)

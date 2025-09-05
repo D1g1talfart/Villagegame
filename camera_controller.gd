@@ -5,7 +5,7 @@ extends Node3D
 # Camera settings
 var zoom_speed = 2.0
 var pan_speed = 10.0
-var min_zoom = 10.0
+var min_zoom = 5.0
 var max_zoom = 50.0
 var map_bounds = Vector2(49, 49)  # Your map size
 

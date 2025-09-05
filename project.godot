@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 BuildModeManager="*res://buildmodemanager.gd"
 JobManager="*res://jobmanager.gd"
+BuildingShop="*res://Buildingshop.gd"
 
 [rendering]
 

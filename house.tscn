@@ -3,7 +3,10 @@
 [ext_resource type="Script" uid="uid://cnjyw2xqwduea" path="res://house.gd" id="1_hfkix"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hfkix"]
-albedo_color = Color(0.36, 1, 0.477333, 1)
+albedo_color = Color(0.877845, 0.257954, 0.653582, 1)
+emission = Color(0.943682, 0.0874765, 0.99888, 1)
+emission_energy_multiplier = 16.0
+clearcoat_roughness = 0.0
 
 [sub_resource type="BoxMesh" id="BoxMesh_metfq"]
 material = SubResource("StandardMaterial3D_hfkix")

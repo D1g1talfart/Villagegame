@@ -23,7 +23,7 @@ func _ready():
 	print("Building ready: ", building_name)
 
 func setup_collision():
-	# Make sure buildings are on collision layer 2
+	# Make sure buildings are on collision layer 2 (for clicking only)
 	collision_layer = 2
 	collision_mask = 0
 

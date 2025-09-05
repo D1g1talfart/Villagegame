@@ -1,10 +1,10 @@
-# JobManager.gd - Create UI entirely in code
 extends Node
 
 var all_villagers: Array[Villager] = []
 var all_jobs: Array[Job] = []
 var job_assignment_ui: Control
 var ui_canvas_layer: CanvasLayer
+
 
 func _ready():
 	print("JobManager: Creating UI in code...")
@@ -99,28 +99,26 @@ func register_job(job: Job):
 		all_jobs.append(job)
 		print("Registered job: ", job.job_type)
 
-# Replace just this function in JobManager.gd
 func show_job_assignment_ui(job: Job):
-	print("JobManager: Creating simple UI like test panel...")
+	print("JobManager: Creating job assignment UI for job type: ", job.job_type)
 	
 	# Remove any existing UI first
 	var existing = get_tree().root.get_node_or_null("SimpleJobUI")
 	if existing:
 		existing.queue_free()
 	
-	# Create UI EXACTLY like your working test
+	# Create UI 
 	var test_control = Control.new()
 	test_control.name = "SimpleJobUI"
 	test_control.size = Vector2(1152, 648)
 	test_control.position = Vector2.ZERO
 	
 	var test_panel = Panel.new()
-	test_panel.size = Vector2(400, 300)
+	test_panel.size = Vector2(400, 350)  # Make it taller for more info
 	test_panel.position = Vector2(200, 200)
 	
-	# Bright color so we can definitely see it
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color.BLUE  # Different color than your test
+	style.bg_color = Color.BLUE
 	test_panel.add_theme_stylebox_override("panel", style)
 	
 	# Job title
@@ -138,40 +136,56 @@ func show_job_assignment_ui(job: Job):
 	title_label.position = Vector2(20, 20)
 	title_label.size = Vector2(360, 30)
 	title_label.add_theme_font_size_override("font_size", 18)
+	title_label.add_theme_color_override("font_color", Color.WHITE)
 	
 	# Current worker
 	var current_label = Label.new()
 	if job.assigned_villager:
-		current_label.text = "Current: " + job.assigned_villager.villager_name
+		current_label.text = "Current Worker: " + job.assigned_villager.villager_name
+		current_label.add_theme_color_override("font_color", Color.YELLOW)
 	else:
-		current_label.text = "Current: None"
+		current_label.text = "Current Worker: None"
+		current_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	current_label.position = Vector2(20, 60)
 	current_label.size = Vector2(360, 30)
+	current_label.add_theme_font_size_override("font_size", 14)
 	
 	# Close button
 	var close_btn = Button.new()
 	close_btn.text = "Close"
-	close_btn.position = Vector2(150, 250)
+	close_btn.position = Vector2(150, 300)
 	close_btn.size = Vector2(100, 30)
 	close_btn.pressed.connect(func(): test_control.queue_free())
 	
-	# Add villager buttons
+	# Add available villagers (only those without jobs OR the current worker)
 	var y_pos = 100
-	for villager in all_villagers:
-		if not villager.assigned_job:
+	var available_villagers = get_available_villagers_for_job(job)
+	
+	if available_villagers.is_empty():
+		var no_villagers_label = Label.new()
+		no_villagers_label.text = "No available villagers"
+		no_villagers_label.position = Vector2(20, y_pos)
+		no_villagers_label.size = Vector2(360, 30)
+		no_villagers_label.add_theme_color_override("font_color", Color.GRAY)
+		test_panel.add_child(no_villagers_label)
+	else:
+		for villager in available_villagers:
 			var btn = Button.new()
-			btn.text = "Assign " + villager.villager_name
+			if villager == job.assigned_villager:
+				btn.text = villager.villager_name + " (Current)"
+				btn.add_theme_color_override("font_color", Color.YELLOW)
+			else:
+				btn.text = "Assign " + villager.villager_name
+				btn.add_theme_color_override("font_color", Color.GREEN)
+			
 			btn.position = Vector2(20, y_pos)
 			btn.size = Vector2(200, 30)
 			btn.pressed.connect(func(): 
-				if villager.assigned_job:
-					villager.unassign_job()
-				villager.assign_job(job)
+				assign_villager_to_job(villager, job)
 				test_control.queue_free()
-				print("Assigned ", villager.villager_name, " to job")
 			)
 			test_panel.add_child(btn)
-			y_pos += 40
+			y_pos += 35
 	
 	# If current job has a worker, add unassign button
 	if job.assigned_villager:
@@ -179,21 +193,59 @@ func show_job_assignment_ui(job: Job):
 		unassign_btn.text = "Unassign Current"
 		unassign_btn.position = Vector2(240, 100)
 		unassign_btn.size = Vector2(140, 30)
+		unassign_btn.add_theme_color_override("font_color", Color.RED)
 		unassign_btn.pressed.connect(func():
-			job.assigned_villager.unassign_job()
+			unassign_villager_from_job(job.assigned_villager)
 			test_control.queue_free()
-			print("Unassigned worker")
 		)
 		test_panel.add_child(unassign_btn)
 	
-	# Assemble exactly like your working test
+	# Assemble UI
 	test_panel.add_child(title_label)
 	test_panel.add_child(current_label)
 	test_panel.add_child(close_btn)
 	test_control.add_child(test_panel)
 	get_tree().root.add_child(test_control)
 	
-	print("Simple UI created - should be BLUE panel")
+	print("Job assignment UI created")
+
+func get_available_villagers_for_job(job: Job) -> Array[Villager]:
+	var available: Array[Villager] = []
+	
+	for villager in all_villagers:
+		# Include villagers with no job OR the current worker of this job
+		if not villager.assigned_job or villager == job.assigned_villager:
+			available.append(villager)
+	
+	print("Available villagers for job: ", available.size())
+	for v in available:
+		var status = "No Job" if not v.assigned_job else "Current Worker"
+		print("  - ", v.villager_name, " (", status, ")")
+	
+	return available
+
+func assign_villager_to_job(villager: Villager, job: Job):
+	print("=== JOB ASSIGNMENT ===")
+	print("Assigning ", villager.villager_name, " to ", job.job_type)
+	
+	# If someone else is already working this job, unassign them first
+	if job.assigned_villager and job.assigned_villager != villager:
+		print("Unassigning current worker: ", job.assigned_villager.villager_name)
+		unassign_villager_from_job(job.assigned_villager)
+	
+	# If this villager has another job, unassign them from it
+	if villager.assigned_job and villager.assigned_job != job:
+		print("Unassigning ", villager.villager_name, " from previous job")
+		unassign_villager_from_job(villager)
+	
+	# Assign the villager to the job
+	villager.assign_job(job)
+	print("Assignment complete: ", villager.villager_name, " -> ", job.job_type)
+
+func unassign_villager_from_job(villager: Villager):
+	print("Unassigning ", villager.villager_name, " from their job")
+	villager.unassign_job()
+	print("Unassignment complete")
 
 func _on_assign_villager(villager: Villager, job: Job):
 	print("Assigning ", villager.villager_name, " to job")
