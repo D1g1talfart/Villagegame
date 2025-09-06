@@ -17,5 +17,3 @@ mesh = SubResource("CapsuleMesh_vucva")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("CapsuleShape3D_sbtgs")
-
-[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]

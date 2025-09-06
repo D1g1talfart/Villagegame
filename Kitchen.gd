@@ -5,7 +5,7 @@ class_name Kitchen
 @export var stored_crops: int = 0
 @export var stored_meals: int = 0
 @export var max_crops: int = 10
-@export var max_meals: int = 5
+@export var max_meals: int = 50
 
 func _ready():
 	building_name = "Kitchen"

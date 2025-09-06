@@ -9,7 +9,7 @@ func _ready():
 # house.gd - Add this simple function back
 func get_entry_position() -> Vector3:
 	# Simple position outside the house for villagers to stand
-	return global_position + Vector3(1.5, 0, 0)  # East of house
+	return global_position + Vector3(0, 0, 1.5)  # East of house
 # Add this to each building's setup_navigation_obstacle() function
 # farm.gd, house.gd, Kitchen.gd - add this line in setup_navigation_obstacle()
 
