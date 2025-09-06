@@ -79,9 +79,16 @@ func can_move_diagonally(from: Vector2i, to: Vector2i) -> bool:
 	var side1 = from + Vector2i(diff.x, 0)  # Horizontal adjacent
 	var side2 = from + Vector2i(0, diff.y)  # Vertical adjacent
 	
+	# DEBUG: Print what we're checking
+	print("Diagonal check from ", from, " to ", to)
+	print("  Checking side1: ", side1, " (walkable: ", is_tile_walkable(side1), ")")
+	print("  Checking side2: ", side2, " (walkable: ", is_tile_walkable(side2), ")")
+	
 	if not is_tile_walkable(side1) or not is_tile_walkable(side2):
+		print("  BLOCKED diagonal movement - can't cut through corner")
 		return false  # Can't cut through corner
 	
+	print("  ALLOWED diagonal movement")
 	return true
 
 func heuristic(a: Vector2i, b: Vector2i) -> float:

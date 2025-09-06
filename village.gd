@@ -21,7 +21,7 @@ func _ready():
 	setup_lighting()
 	generate_map()
 	setup_ground_collision()
-	setup_navigation_region()
+	#setup_navigation_region()
 	setup_mobile_controls()
 	setup_build_mode()
 	spawn_initial_buildings()
@@ -248,7 +248,7 @@ func spawn_villager(villager_name: String, house):
 	villager.home_house = house
 	
 	add_child(villager)
-	villager.global_position = house.global_position + Vector3(1.5, 0, 0)
+	villager.global_position = house.global_position + Vector3(0, 0, 2)
 	
 	JobManager.register_villager(villager)
 	print("Spawned villager: ", villager_name)

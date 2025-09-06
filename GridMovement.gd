@@ -56,6 +56,7 @@ func move_to_position(target_world_pos: Vector3) -> bool:
 	return recalculate_path()
 
 func recalculate_path() -> bool:
+	# ALWAYS update obstacles before pathfinding
 	update_pathfinder_obstacles()
 	
 	var start_grid = world_to_grid(villager.global_position)
@@ -110,10 +111,10 @@ func _physics_process(delta):
 	if last_obstacle_check_time >= obstacle_check_interval:
 		last_obstacle_check_time = 0.0
 		
-		update_pathfinder_obstacles()  # Get latest obstacle info
+		update_pathfinder_obstacles()  # Remove the print from this function
 		
 		if not check_path_still_valid():
-			print("Path blocked! Recalculating...")
+			print(villager.villager_name, " path blocked - recalculating...")
 			if not recalculate_path():
 				print("No alternative path found - stopping movement")
 				finish_movement()

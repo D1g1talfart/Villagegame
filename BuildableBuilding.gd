@@ -78,7 +78,8 @@ func _on_building_selection_changed(selected_building):
 	set_selected(selected_building == self)
 
 func move_to_grid_position(new_grid_pos: Vector2i):
-	grid_position = new_grid_pos
+	# grid_position is now set by BuildModeManager before this is called
+	# Just update the visual position
 	position = Vector3(new_grid_pos.x, position.y, new_grid_pos.y)
 	building_moved.emit(self, new_grid_pos)
 	print("Moved ", building_name, " to ", new_grid_pos)
@@ -88,4 +89,9 @@ func get_occupied_tiles() -> Array[Vector2i]:
 	for x in range(building_size.x):
 		for y in range(building_size.y):
 			tiles.append(Vector2i(grid_position.x + x, grid_position.y + y))
+	
+	# DEBUG: Print house tiles when house is moved
+	if building_name == "House":
+		print("House at ", grid_position, " occupies tiles: ", tiles)
+	
 	return tiles

@@ -27,6 +27,7 @@ var grid_movement: GridMovement
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 
 func _ready():
+	add_to_group("villagers")
 	setup_collision_layers()
 	setup_appearance()
 	setup_grid_movement()
