@@ -114,7 +114,7 @@ func create_grass_tile():
 func create_kitchen_tile():
 	var mesh_instance = MeshInstance3D.new()
 	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(0.9, 0.2, 0.9)
+	box_mesh.size = Vector3(1, 0.2, 1)
 	mesh_instance.mesh = box_mesh
 	
 	var material = StandardMaterial3D.new()
@@ -172,15 +172,23 @@ func _on_build_mode_toggled(is_active: bool):
 func spawn_initial_buildings():
 	# Spawn a farm at position (10, 10)
 	var farm = farm_scene.instantiate()
+	# CRITICAL: Set grid_position IMMEDIATELY after instantiation, before adding to scene
+	farm.grid_position = Vector2i(35, 35)
 	add_child(farm)
-	farm.position = Vector3(10, 0.1, 10)
+	farm.position = Vector3(35, 0.1, 35)
 	BuildModeManager.register_building(farm, Vector2i(10, 10))
 	
-	# Spawn a house at position (15, 15)
+	# Spawn a house at position (30, 15) - testing the new location
 	var house = house_scene.instantiate()
+	# CRITICAL: Set grid_position IMMEDIATELY after instantiation, before adding to scene  
+	house.grid_position = Vector2i(30, 30)
 	add_child(house)
-	house.position = Vector3(15, 0.1, 15)
-	BuildModeManager.register_building(house, Vector2i(15, 15))
+	house.position = Vector3(30, 0.1, 30)
+	BuildModeManager.register_building(house, Vector2i(30, 15))
+	
+	print("Initial buildings spawned with correct grid positions")
+	print("Farm grid_position: ", farm.grid_position)
+	print("House grid_position: ", house.grid_position)
 
 func setup_jobs_and_villagers():
 	await get_tree().process_frame
@@ -270,10 +278,24 @@ func _input(event):
 	elif event.is_action_pressed("ui_down") and BuildingShop.player_level > 1:
 		BuildingShop.set_player_level(BuildingShop.player_level - 1)
 	
-	if not BuildModeManager.is_build_mode_active:
+	# FIXED: Check if any UI is open before handling job assignment clicks
+	if not BuildModeManager.is_build_mode_active and not is_any_ui_open():
 		if event is InputEventMouseButton and event.pressed:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				handle_job_assignment_click()
+
+# Add this new function to village.gd
+func is_any_ui_open() -> bool:
+	# Check if shop UI is open
+	if mobile_ui and mobile_ui.building_shop_ui and mobile_ui.building_shop_ui.visible:
+		return true
+	
+	# Check if job assignment UI is open
+	var job_ui = get_tree().root.get_node_or_null("SimpleJobUI")
+	if job_ui:
+		return true
+	
+	return false
 
 func create_test_ui():
 	print("Creating test UI...")

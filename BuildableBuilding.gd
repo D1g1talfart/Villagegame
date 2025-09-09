@@ -11,7 +11,7 @@ signal building_moved(building, new_position)
 var is_selected: bool = false
 var original_material: Material
 var highlight_material: StandardMaterial3D
-var grid_position: Vector2i
+var grid_position: Vector2i = Vector2i(-999, -999)
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D

@@ -220,7 +220,13 @@ func deselect_building():
 
 func register_building(building: BuildableBuilding, grid_pos: Vector2i):
 	all_buildings.append(building)
-	building.grid_position = grid_pos
+	# Only set grid_position if it's still at the invalid default
+	if building.grid_position == Vector2i(-999, -999):
+		building.grid_position = grid_pos
+		print("Set grid_position for ", building.building_name, " to ", grid_pos)
+	else:
+		print("Grid position already set for ", building.building_name, ": ", building.grid_position)
+	
 	for tile in building.get_occupied_tiles():
 		occupied_tiles[tile] = building
 

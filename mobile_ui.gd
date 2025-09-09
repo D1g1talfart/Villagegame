@@ -237,10 +237,11 @@ func create_shop_ui():
 	building_shop_ui.name = "BuildingShopUI"
 	building_shop_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	
-	# Semi-transparent background
+	# Semi-transparent background that consumes ALL input
 	var bg = ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.7)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP  # This stops input from passing through
 	building_shop_ui.add_child(bg)
 	
 	# Main panel
@@ -306,10 +307,14 @@ func create_shop_ui():
 	
 	shop_panel.add_child(main_vbox)
 	building_shop_ui.add_child(shop_panel)
+	
+	# ADDED: Make the whole shop UI consume input events
+	building_shop_ui.mouse_filter = Control.MOUSE_FILTER_STOP
+	
 	add_child(building_shop_ui)
 	
 	building_shop_ui.hide()  # Start hidden
-	print("Shop UI created successfully")
+	print("Shop UI created successfully with input blocking")
 
 func populate_shop():
 	print("=== POPULATE SHOP DEBUG ===")
@@ -443,11 +448,18 @@ func _on_building_purchase(building_data: BuildingData):
 		
 		print("Successfully purchased - now place the building on the map!")
 		
+		# ADDED: Consume any pending input events to prevent click-through
+		get_viewport().set_input_as_handled()
+		
 		# Don't refresh shop yet - wait until placement is complete
 	else:
 		print("Purchase failed")
+
+
 func _on_shop_close_pressed():
 	building_shop_ui.hide()
+	# Consume the input event to prevent click-through
+	get_viewport().set_input_as_handled()
 
 # Update the existing update_resource_display to also update shop if open
 func update_resource_display():
@@ -466,3 +478,12 @@ func update_resource_display():
 	# Update shop display if it's open
 	if building_shop_ui and building_shop_ui.visible:
 		populate_shop()
+
+
+func _input(event):
+	# If shop is open, consume scroll events to prevent camera zoom
+	if building_shop_ui and building_shop_ui.visible:
+		if event is InputEventMouseButton:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				# Let the scroll container handle it, but don't let it pass through to camera
+				get_viewport().set_input_as_handled()

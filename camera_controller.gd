@@ -34,6 +34,10 @@ func _input(event):
 	handle_pan_end(event)
 
 func handle_zoom(event):
+	# ADDED: Don't process zoom if any UI is open
+	if is_any_ui_open():
+		return
+		
 	var zoom_delta = 0.0
 	
 	# Desktop mouse wheel
@@ -48,6 +52,20 @@ func handle_zoom(event):
 	
 	if zoom_delta != 0:
 		camera.size = clamp(camera.size + zoom_delta, min_zoom, max_zoom)
+
+# Add this function to camera_controller.gd
+func is_any_ui_open() -> bool:
+	# Find the village scene to access mobile_ui
+	var village = get_tree().current_scene
+	if village and village.has_method("is_any_ui_open"):
+		return village.is_any_ui_open()
+	
+	# Fallback check
+	var mobile_ui = get_tree().current_scene.get_node_or_null("MobileUI")
+	if mobile_ui and mobile_ui.building_shop_ui and mobile_ui.building_shop_ui.visible:
+		return true
+	
+	return false
 
 func handle_pan_start(event):
 	# Desktop - right mouse button or middle mouse

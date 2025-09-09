@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://dd76y2tgwh5nx"]
+[gd_scene load_steps=8 format=3 uid="uid://dd76y2tgwh5nx"]
 
 [ext_resource type="Script" uid="uid://cf335kdlkp0bn" path="res://farm.gd" id="1_ju177"]
 
@@ -13,6 +13,14 @@ albedo_color = Color(0.637385, 0.363679, 0.167008, 1)
 material = SubResource("StandardMaterial3D_bw225")
 size = Vector3(2, 0.5, 2)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vkr66"]
+albedo_color = Color(0.83, 0.76775, 0.083, 1)
+
+[sub_resource type="TextMesh" id="TextMesh_t23pn"]
+material = SubResource("StandardMaterial3D_vkr66")
+text = "Farm"
+font_size = 56
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_vkr66"]
 size = Vector3(2, 0.5, 2)
 
@@ -23,6 +31,10 @@ script = ExtResource("1_ju177")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0.5)
 material_override = SubResource("StandardMaterial3D_ju177")
 mesh = SubResource("BoxMesh_bw225")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(0.707107, -0.707107, -3.09086e-08, 0, -4.37114e-08, 1, -0.707107, -0.707107, -3.09086e-08, 0, 0.239, 0)
+mesh = SubResource("TextMesh_t23pn")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("BoxShape3D_vkr66")

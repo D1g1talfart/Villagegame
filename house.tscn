@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://dmny5xdhkuoav"]
+[gd_scene load_steps=9 format=3 uid="uid://dmny5xdhkuoav"]
 
 [ext_resource type="Script" uid="uid://cnjyw2xqwduea" path="res://house.gd" id="1_hfkix"]
 
@@ -15,12 +15,40 @@ size = Vector3(1, 1.5, 2)
 [sub_resource type="BoxShape3D" id="BoxShape3D_hfkix"]
 size = Vector3(1, 1.5, 2)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metfq"]
+albedo_color = Color(0.216368, 0.616689, 0.768681, 1)
+
+[sub_resource type="PrismMesh" id="PrismMesh_hfkix"]
+material = SubResource("StandardMaterial3D_metfq")
+size = Vector3(1.2, 0.4, 2.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_hfkix"]
+size = Vector3(0.515, 1.07, 0.2)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_metfq"]
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.2
+
 [node name="House" type="StaticBody3D"]
 script = ExtResource("1_hfkix")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0.5)
 mesh = SubResource("BoxMesh_metfq")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5)
 shape = SubResource("BoxShape3D_hfkix")
+
+[node name="RoofMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0.5)
+mesh = SubResource("PrismMesh_hfkix")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="RoofMesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1, -1.15, 0.937254)
+mesh = SubResource("BoxMesh_hfkix")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="RoofMesh/MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, -0.145, 0, 0.0521003)
+mesh = SubResource("CylinderMesh_metfq")

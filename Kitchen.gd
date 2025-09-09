@@ -65,3 +65,16 @@ func get_work_position() -> Vector3:
 func get_actual_work_spot() -> Vector3:
 	# Actual work location - center of kitchen (for teleporting when working)
 	return global_position
+
+func can_accept_crops(amount: int) -> bool:
+	return stored_crops + amount <= max_crops
+
+func get_available_crop_space() -> int:
+	return max_crops - stored_crops
+
+func is_crops_storage_full() -> bool:
+	return stored_crops >= max_crops
+
+# Also add this for better debugging
+func get_storage_status() -> String:
+	return "Crops: %d/%d, Meals: %d/%d" % [stored_crops, max_crops, stored_meals, max_meals]

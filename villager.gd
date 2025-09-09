@@ -88,14 +88,39 @@ func handle_idle_state():
 		return
 	
 	if pending_unassignment and carrying_crops > 0:
-		print("Pending unassignment - finishing crop delivery")
-		farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
-		handle_farm_worker_cycle()
-		return
+		# Check if kitchen still has room before continuing delivery
+		var kitchen = get_kitchen()
+		if kitchen and kitchen.has_method("can_accept_crops"):
+			if not kitchen.can_accept_crops(carrying_crops):
+				# Kitchen became full while we were pending - drop crops and go home
+				print(villager_name, " kitchen became full during pending unassignment - dropping crops")
+				carrying_crops = 0
+				var material = mesh_instance.material_override as StandardMaterial3D
+				if material:
+					material.albedo_color = Color.ORANGE
+				complete_pending_unassignment()
+				go_to_house_idle()
+				return
+			else:
+				print("Pending unassignment - finishing crop delivery")
+				farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
+				handle_farm_worker_cycle()
+				return
 	
 	if assigned_job and assigned_job.should_work():
 		if assigned_job.job_type == Job.JobType.FARM_WORKER:
-			handle_farm_worker_cycle()
+			# If we're carrying crops but kitchen is full, wait
+			if carrying_crops > 0 and farm_worker_state == FarmWorkerState.DELIVERING:
+				var kitchen = get_kitchen()
+				if kitchen and kitchen.has_method("can_accept_crops"):
+					if kitchen.can_accept_crops(carrying_crops):
+						print(villager_name, " kitchen now has room - attempting delivery")
+						deliver_crops_to_kitchen()
+					else:
+						print(villager_name, " still waiting - kitchen full")
+						return  # Stay idle until kitchen has room
+			else:
+				handle_farm_worker_cycle()
 		elif assigned_job.job_type == Job.JobType.KITCHEN_WORKER:
 			handle_kitchen_worker_cycle()
 	else:
@@ -119,6 +144,12 @@ func handle_farm_worker_cycle():
 			if carrying_crops > 0:
 				var kitchen = get_kitchen()
 				if kitchen and kitchen.has_method("get_work_position"):
+					# NEW: Check if kitchen has room before going there
+					if kitchen.has_method("can_accept_crops") and not kitchen.can_accept_crops(carrying_crops):
+						print(villager_name, " waiting - kitchen full! ", kitchen.get_storage_status() if kitchen.has_method("get_storage_status") else "")
+						# Stay in current state and position - we'll check again next frame
+						return
+					
 					var kitchen_entry = kitchen.get_work_position()
 					if global_position.distance_to(kitchen_entry) > 1.5:
 						print("Walking to kitchen entry point: ", kitchen_entry)
@@ -284,6 +315,16 @@ func perform_kitchen_work():
 func deliver_crops_to_kitchen():
 	var kitchen = get_kitchen()
 	if kitchen and kitchen.has_method("add_crops") and carrying_crops > 0:
+		# Double-check that kitchen can accept crops
+		if kitchen.has_method("can_accept_crops") and not kitchen.can_accept_crops(carrying_crops):
+			print(villager_name, " cannot deliver - kitchen became full! Waiting...")
+			# Teleport back to kitchen entry and wait
+			var kitchen_exit = kitchen.get_work_position()
+			global_position = kitchen_exit
+			global_position.y = 0.1
+			# Stay in DELIVERING state - will retry when kitchen has space
+			return
+		
 		if kitchen.add_crops(carrying_crops):
 			print(villager_name, " delivered ", carrying_crops, " crop(s)")
 			carrying_crops = 0
@@ -308,6 +349,13 @@ func deliver_crops_to_kitchen():
 			var farm = assigned_job.workplace
 			if farm:
 				walk_to_position(farm.get_work_position(), "farm")
+		else:
+			print(villager_name, " delivery failed - kitchen full! Waiting at kitchen...")
+			# Stay at kitchen exit and wait
+			var kitchen_exit = kitchen.get_work_position()
+			global_position = kitchen_exit
+			global_position.y = 0.1
+			# Stay in DELIVERING state - will retry next frame
 
 func get_kitchen() -> Node3D:
 	var village = get_parent()
@@ -340,10 +388,38 @@ func assign_job(job: Job):
 func unassign_job():
 	if assigned_job:
 		if carrying_crops > 0:
-			print("Will finish delivery before going home")
-			pending_unassignment = true
-			return
+			var kitchen = get_kitchen()
+			# NEW: If kitchen is full, drop crops and go home immediately
+			if kitchen and kitchen.has_method("can_accept_crops") and not kitchen.can_accept_crops(carrying_crops):
+				print(villager_name, " unassigned with crops but kitchen full - dropping crops and going home")
+				# Drop the crops (they're lost)
+				carrying_crops = 0
+				farm_worker_state = FarmWorkerState.GOING_TO_FARM
+				
+				# Reset appearance
+				var material = mesh_instance.material_override as StandardMaterial3D
+				if material:
+					material.albedo_color = Color.ORANGE
+				
+				# Clear job assignment
+				assigned_job.unassign_villager()
+				assigned_job = null
+				pending_unassignment = false
+				
+				# Stop current movement and go home
+				if current_state == State.WALKING:
+					grid_movement.stop_movement()
+				
+				go_to_house_idle()
+				print(villager_name, " dropped crops and going home (kitchen was full)")
+				return
+			else:
+				# Kitchen has room - use pending unassignment logic
+				print("Will finish delivery before going home (kitchen has room)")
+				pending_unassignment = true
+				return
 		else:
+			# No crops to deliver - unassign immediately
 			assigned_job.unassign_villager()
 			assigned_job = null
 			
