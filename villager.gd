@@ -124,7 +124,7 @@ func handle_idle_state():
 		elif assigned_job.job_type == Job.JobType.KITCHEN_WORKER:
 			handle_kitchen_worker_cycle()
 	else:
-		go_to_house_idle()
+		go_to_house_idle() 
 
 func handle_farm_worker_cycle():
 	match farm_worker_state:

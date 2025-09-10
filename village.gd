@@ -6,6 +6,7 @@ extends Node3D
 var farm_scene = preload("res://Farm.tscn")
 var house_scene = preload("res://House.tscn")
 var villager_scene = preload("res://Villager.tscn")
+var kitchen_scene = preload("res://Kitchen.tscn")
 
 var villager_names: Array[String] = [
 	"Bob", "Alice", "Charlie", "Diana", "Edward", "Fiona", "George", "Hannah",
@@ -36,7 +37,7 @@ func setup_lighting():
 	sun_light.name = "Sun"
 	sun_light.position = Vector3(0, 20, 0)
 	sun_light.rotation_degrees = Vector3(-45, -30, 0)
-	sun_light.light_energy = 1.0
+	sun_light.light_energy = 1.5
 	add_child(sun_light)
 	
 	var environment = Environment.new()
@@ -65,63 +66,52 @@ func generate_map():
 	# Create kitchen in center (3x3)
 	create_kitchen_building()
 
+# village.gd - Replace create_kitchen_building() with this clean version
 func create_kitchen_building():
 	var center = 49 / 2
 	
-	# Create the kitchen tiles visually
-	for x in range(center - 1, center + 2):
-		for z in range(center - 1, center + 2):
-			var kitchen_tile = create_kitchen_tile()
-			kitchen_tile.position = Vector3(x, 0.1, z)
-			add_child(kitchen_tile)
-	
-	# Create the Kitchen building node
-	var kitchen = Kitchen.new()
+	# Load and instantiate the Kitchen scene
+	var kitchen = kitchen_scene.instantiate()
 	kitchen.name = "Kitchen"
 	kitchen.position = Vector3(center, 0.1, center)
 	
-	# ADD COLLISION TO KITCHEN
-	var collision_body = StaticBody3D.new()
-	collision_body.name = "KitchenCollision"
-	collision_body.collision_layer = 2  # Same layer as other buildings
-	collision_body.collision_mask = 0
-	
-	var collision_shape = CollisionShape3D.new()
-	var shape = BoxShape3D.new()
-	shape.size = Vector3(3, 1, 3)  # 3x3 kitchen size, 1 unit tall
-	collision_shape.shape = shape
-	collision_shape.position = Vector3(0, 0.5, 0)  # Center the collision box
-	
-	collision_body.add_child(collision_shape)
-	kitchen.add_child(collision_body)
+	# Set the grid position immediately
+	kitchen.grid_position = Vector2i(center - 1, center - 1)  # Top-left corner of 3x3
 	
 	add_child(kitchen)
 	
-	print("Kitchen created with collision at: ", kitchen.position)
+	# Register with BuildModeManager
+	BuildModeManager.register_building(kitchen, Vector2i(center - 1, center - 1))
+	
+	print("Kitchen scene created at: ", kitchen.position, " (no overlapping tiles)")
+
 
 func create_grass_tile():
 	var mesh_instance = MeshInstance3D.new()
 	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(0.9, 0.1, 0.9)
+	box_mesh.size = Vector3(1, 0.01, 1)
 	mesh_instance.mesh = box_mesh
 	
 	var material = StandardMaterial3D.new()
-	material.albedo_color = Color.GREEN
+	
+	# Load the grass texture
+	var grass_texture = load("res://Textures/Grass.png") as Texture2D
+	if grass_texture:
+		material.albedo_texture = grass_texture
+	else:
+		print("WARNING: Could not load grass texture - using green color fallback")
+		material.albedo_color = Color.GREEN
+	
+	# Optional: You can still tint the texture with a color if needed
+	# material.albedo_color = Color.WHITE  # White = no tint, shows texture as-is
+	
+	# Optional: Adjust texture tiling if the texture is too big/small per tile
+	material.uv1_scale = Vector3(3, 2, 2)  # Adjust these values to tile the texture
+	
 	mesh_instance.material_override = material
 	
 	return mesh_instance
 
-func create_kitchen_tile():
-	var mesh_instance = MeshInstance3D.new()
-	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(1, 0.2, 1)
-	mesh_instance.mesh = box_mesh
-	
-	var material = StandardMaterial3D.new()
-	material.albedo_color = Color(0.6, 0.3, 0.1)
-	mesh_instance.material_override = material
-	
-	return mesh_instance
 
 func setup_ground_collision():
 	var ground_body = StaticBody3D.new()
@@ -235,9 +225,10 @@ func get_next_villager_name() -> String:
 		next_villager_index += 1
 		return fallback_name
 
+# village.gd - Replace find_kitchen_building() with this fixed version
 func find_kitchen_building():
 	for child in get_children():
-		if child is Kitchen:  # Look for Kitchen class specifically
+		if child.has_method("is_kitchen") and child.is_kitchen():  # Use the method instead of class check
 			return child
 	print("Warning: Kitchen not found")
 	return null

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://dmny5xdhkuoav"]
+[gd_scene load_steps=12 format=3 uid="uid://dmny5xdhkuoav"]
 
 [ext_resource type="Script" uid="uid://cnjyw2xqwduea" path="res://house.gd" id="1_hfkix"]
 
@@ -22,13 +22,24 @@ albedo_color = Color(0.216368, 0.616689, 0.768681, 1)
 material = SubResource("StandardMaterial3D_metfq")
 size = Vector3(1.2, 0.4, 2.1)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6syyc"]
+albedo_color = Color(0.48, 0.32128, 0.1824, 1)
+
 [sub_resource type="BoxMesh" id="BoxMesh_hfkix"]
+material = SubResource("StandardMaterial3D_6syyc")
 size = Vector3(0.515, 1.07, 0.2)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_o1325"]
+albedo_color = Color(0, 0, 0, 1)
+
 [sub_resource type="CylinderMesh" id="CylinderMesh_metfq"]
+material = SubResource("StandardMaterial3D_o1325")
 top_radius = 0.05
 bottom_radius = 0.05
 height = 0.2
+
+[sub_resource type="BoxMesh" id="BoxMesh_6syyc"]
+size = Vector3(0.3, 1, 0.3)
 
 [node name="House" type="StaticBody3D"]
 script = ExtResource("1_hfkix")
@@ -45,10 +56,17 @@ shape = SubResource("BoxShape3D_hfkix")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0.5)
 mesh = SubResource("PrismMesh_hfkix")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="RoofMesh"]
+[node name="DoorMesh" type="MeshInstance3D" parent="RoofMesh"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1, -1.15, 0.937254)
 mesh = SubResource("BoxMesh_hfkix")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="RoofMesh/MeshInstance3D"]
+[node name="DoorHandleMesh" type="MeshInstance3D" parent="RoofMesh/DoorMesh"]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, -0.145, 0, 0.0521003)
 mesh = SubResource("CylinderMesh_metfq")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="RoofMesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.282885, -0.22003, -0.596675)
+mesh = SubResource("BoxMesh_6syyc")
+
+[node name="GPUParticles3D" type="GPUParticles3D" parent="RoofMesh/MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.657367, 0)

@@ -1,6 +1,5 @@
 # Kitchen.gd
 extends BuildableBuilding
-class_name Kitchen
 
 @export var stored_crops: int = 0
 @export var stored_meals: int = 0
@@ -11,8 +10,11 @@ func _ready():
 	building_name = "Kitchen"
 	building_size = Vector2i(3, 3)
 	
-	# Kitchen doesn't have a mesh_instance like other buildings
-	# Skip the super._ready() call that expects mesh_instance
+	setup_collision()
+	
+	# Call the parent _ready() for material setup
+	super._ready()
+	
 	setup_navigation_obstacle()
 	
 	# Register kitchen job with JobManager AND set meta
@@ -21,7 +23,13 @@ func _ready():
 	set_meta("job", kitchen_job)
 	print("Kitchen job registered and meta set")
 	
+	print("Kitchen scene loaded successfully")
 	
+func setup_collision():
+	# Set collision layers (this should be done on the StaticBody3D itself)
+	collision_layer = 2  # Buildings are on layer 2 (for clicking)
+	collision_mask = 0   # Don't collide with anything
+
 func setup_navigation_obstacle():
 	# Add navigation obstacle so pathfinding goes around the kitchen
 	var nav_obstacle = NavigationObstacle3D.new()
@@ -61,6 +69,7 @@ func get_work_position() -> Vector3:
 	# Pathfinding target - outside the 3x3 kitchen obstacle
 	# Kitchen is 3x3, so we need to go outside the collision area
 	return global_position + Vector3(0, 0, -2.0)  # 2 units south of kitchen center
+	return global_position + Vector3(0, 0, 2.0)
 
 func get_actual_work_spot() -> Vector3:
 	# Actual work location - center of kitchen (for teleporting when working)

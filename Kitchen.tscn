@@ -1,0 +1,157 @@
+[gd_scene load_steps=22 format=3 uid="uid://bmct36s5jv107"]
+
+[ext_resource type="Script" uid="uid://mn8hklfmmsgv" path="res://kitchen.gd" id="1_vloss"]
+[ext_resource type="Material" uid="uid://n6aje1yjxksv" path="res://Materials/Metal.tres" id="2_ihhv2"]
+[ext_resource type="Material" uid="uid://fros71psmags" path="res://Materials/Soup.tres" id="3_rlrs5"]
+
+[sub_resource type="Gradient" id="Gradient_rlrs5"]
+colors = PackedColorArray(0.450345, 0.224102, 0.127262, 1, 0.2915, 0.136833, 0.0763707, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_axvxv"]
+noise_type = 2
+frequency = 0.2004
+fractal_type = 0
+fractal_octaves = 1
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_eqcb7"]
+seamless = true
+seamless_blend_skirt = 0.525
+color_ramp = SubResource("Gradient_rlrs5")
+noise = SubResource("FastNoiseLite_axvxv")
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_rlrs5"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0mi6m"]
+albedo_texture = SubResource("NoiseTexture2D_eqcb7")
+metallic_specular = 0.0
+metallic_texture_channel = 1
+roughness_texture = SubResource("NoiseTexture2D_rlrs5")
+roughness_texture_channel = 4
+
+[sub_resource type="BoxMesh" id="BoxMesh_ipk1y"]
+material = SubResource("StandardMaterial3D_0mi6m")
+size = Vector3(3, 0.5, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_xsyy8"]
+size = Vector3(3, 1, 3)
+
+[sub_resource type="Gradient" id="Gradient_axvxv"]
+offsets = PackedFloat32Array(0, 0.452381)
+colors = PackedColorArray(1, 0.948333, 0.69, 1, 0.613442, 0.227753, 0.085534, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_eqcb7"]
+noise_type = 3
+frequency = 0.1087
+fractal_octaves = 1
+fractal_gain = 1.125
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_pvymr"]
+color_ramp = SubResource("Gradient_axvxv")
+noise = SubResource("FastNoiseLite_eqcb7")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ihhv2"]
+albedo_color = Color(0.6, 0.545, 0.27, 1)
+albedo_texture = SubResource("NoiseTexture2D_pvymr")
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_rlrs5"]
+material = SubResource("StandardMaterial3D_ihhv2")
+top_radius = 0.2
+bottom_radius = 0.2
+
+[sub_resource type="TorusMesh" id="TorusMesh_axvxv"]
+material = ExtResource("2_ihhv2")
+inner_radius = 0.95
+outer_radius = 1.1
+rings = 20
+ring_segments = 3
+
+[sub_resource type="SphereMesh" id="SphereMesh_0mi6m"]
+material = ExtResource("2_ihhv2")
+radius = 1.0
+radial_segments = 20
+rings = 7
+is_hemisphere = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_axvxv"]
+material = ExtResource("3_rlrs5")
+radius = 1.0
+height = 0.001
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rlrs5"]
+emission_shape_scale = Vector3(0.565, 0.51, 0.675)
+emission_shape = 6
+emission_ring_axis = Vector3(0, 90, 0)
+emission_ring_height = 0.0
+emission_ring_radius = 1.0
+emission_ring_inner_radius = 0.0
+emission_ring_cone_angle = 90.0
+angle_min = -720.0
+angle_max = 720.0
+direction = Vector3(0, 1, 0)
+spread = 88.373
+initial_velocity_min = 0.4
+initial_velocity_max = 0.75
+gravity = Vector3(0, 1, 0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rlrs5"]
+albedo_color = Color(0.5915, 0.62855, 0.65, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_eqcb7"]
+material = SubResource("StandardMaterial3D_rlrs5")
+radius = 0.03
+height = 0.06
+radial_segments = 5
+rings = 5
+
+[node name="Kitchen" type="StaticBody3D"]
+script = ExtResource("1_vloss")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_ipk1y")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+visible = false
+shape = SubResource("BoxShape3D_xsyy8")
+
+[node name="Decorations" type="Node3D" parent="."]
+
+[node name="Fire" type="Node3D" parent="Decorations"]
+
+[node name="Log" type="MeshInstance3D" parent="Decorations/Fire"]
+transform = Transform3D(-4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0.342085, 0.776333)
+mesh = SubResource("CylinderMesh_rlrs5")
+
+[node name="Log2" type="MeshInstance3D" parent="Decorations/Fire"]
+transform = Transform3D(-4.37052e-08, -0.999858, -0.0168591, 1, -4.37114e-08, 0, -7.36932e-10, -0.0168591, 0.999858, 0.151795, 0.342085, -0.874963)
+mesh = SubResource("CylinderMesh_rlrs5")
+
+[node name="Log3" type="MeshInstance3D" parent="Decorations/Fire"]
+transform = Transform3D(-2.51003e-10, -0.00574219, -0.999984, 1, -4.37114e-08, 0, -4.37107e-08, -0.999984, 0.00574219, 0.78739, 0.67882, -0.074285)
+mesh = SubResource("CylinderMesh_rlrs5")
+
+[node name="Log4" type="MeshInstance3D" parent="Decorations/Fire"]
+transform = Transform3D(-2.51003e-10, -0.00574219, -0.999984, 1, -4.37114e-08, 0, -4.37107e-08, -0.999984, 0.00574219, -0.58853, 0.67882, -0.074285)
+mesh = SubResource("CylinderMesh_rlrs5")
+
+[node name="Couldron" type="Node3D" parent="Decorations"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0817789, -0.335737, 0)
+
+[node name="Rim" type="MeshInstance3D" parent="Decorations/Couldron"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.00792527, 1.78292, -0.000934601)
+mesh = SubResource("TorusMesh_axvxv")
+skeleton = NodePath("../../..")
+
+[node name="Bowl" type="MeshInstance3D" parent="Decorations/Couldron"]
+transform = Transform3D(1, 0, 0, 0, -1, -8.74228e-08, 0, 8.74228e-08, -1, 0, 1.77823, 0)
+mesh = SubResource("SphereMesh_0mi6m")
+
+[node name="Soup" type="MeshInstance3D" parent="Decorations/Couldron"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.00571585, 1.78026, -0.0182188)
+mesh = SubResource("SphereMesh_axvxv")
+
+[node name="Steam" type="GPUParticles3D" parent="Decorations/Couldron"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.66194, 0)
+amount = 40
+process_material = SubResource("ParticleProcessMaterial_rlrs5")
+draw_pass_1 = SubResource("SphereMesh_eqcb7")

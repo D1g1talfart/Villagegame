@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bexntwrfu6st6"
-path="res://.godot/imported/pixellab-flat-grassy-floor-texture-1756646132046.png-c739c5db73fa1b98d95dbadb650211e7.ctex"
+uid="uid://tvg8f6o6qami"
+path="res://.godot/imported/Grass.png-d87f97912dbbbc34dd77d87df1b2ba42.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Textures/pixellab-flat-grassy-floor-texture-1756646132046.png"
-dest_files=["res://.godot/imported/pixellab-flat-grassy-floor-texture-1756646132046.png-c739c5db73fa1b98d95dbadb650211e7.ctex"]
+source_file="res://Textures/Grass.png"
+dest_files=["res://.godot/imported/Grass.png-d87f97912dbbbc34dd77d87df1b2ba42.ctex"]
 
 [params]
 
