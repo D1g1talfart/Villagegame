@@ -1,4 +1,4 @@
-# villager.gd - Updated for grid-based movement
+# villager.gd - Updated for generic resource workers
 extends CharacterBody3D
 class_name Villager
 
@@ -6,18 +6,24 @@ signal job_completed
 signal arrived_at_destination
 
 enum State { IDLE, WALKING, WORKING }
-enum FarmWorkerState { GOING_TO_FARM, HARVESTING, GOING_TO_KITCHEN, DELIVERING }
+enum WorkerState { 
+	GOING_TO_SOURCE,     # Going to resource source (farm/heartwood/etc)
+	GATHERING,           # Harvesting/gathering at source
+	GOING_TO_STORAGE,    # Going to storage location
+	DELIVERING           # Delivering to storage
+}
 
 @export var villager_name: String = "Villager"
 @export var movement_speed: float = 3.0
 @export var work_duration: float = 2.0
 
 var current_state: State = State.IDLE
-var farm_worker_state: FarmWorkerState = FarmWorkerState.GOING_TO_FARM
+var worker_state: WorkerState = WorkerState.GOING_TO_SOURCE
 var assigned_job: Job
 var home_house: BuildableBuilding
 var work_timer: float = 0.0
 var carrying_crops: int = 0
+var carrying_wood: int = 0
 var pending_unassignment: bool = false
 var walking_toward: String = ""
 
@@ -82,53 +88,116 @@ func _physics_process(delta):
 			handle_working_state(delta)
 
 func handle_idle_state():
-	if pending_unassignment and carrying_crops == 0:
+	if pending_unassignment and carrying_crops == 0 and carrying_wood == 0:
 		complete_pending_unassignment()
 		go_to_house_idle()
 		return
 	
-	if pending_unassignment and carrying_crops > 0:
-		# Check if kitchen still has room before continuing delivery
+	if pending_unassignment and (carrying_crops > 0 or carrying_wood > 0):
+		# Handle pending deliveries for different resource types
+		if carrying_crops > 0:
+			var kitchen = get_kitchen()
+			if kitchen and kitchen.has_method("can_accept_crops"):
+				if not kitchen.can_accept_crops(carrying_crops):
+					print(villager_name, " kitchen became full during pending unassignment - dropping crops")
+					carrying_crops = 0
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color.ORANGE
+					complete_pending_unassignment()
+					go_to_house_idle()
+					return
+				else:
+					worker_state = WorkerState.GOING_TO_STORAGE
+					handle_resource_worker_cycle()
+					return
+		
+		if carrying_wood > 0:
+			var wood_storage = get_wood_storage()
+			if wood_storage and wood_storage.has_method("can_accept_wood"):
+				if not wood_storage.can_accept_wood(carrying_wood):
+					print(villager_name, " wood storage became full during pending unassignment - dropping wood")
+					carrying_wood = 0
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color.ORANGE
+					complete_pending_unassignment()
+					go_to_house_idle()
+					return
+				else:
+					worker_state = WorkerState.GOING_TO_STORAGE
+					handle_resource_worker_cycle()
+					return
+	
+	if assigned_job and assigned_job.should_work():
+		if assigned_job.job_type == Job.JobType.FARM_WORKER or assigned_job.job_type == Job.JobType.WOOD_GATHERER:
+			# Check if we're carrying resources but storage is full
+			if assigned_job.job_type == Job.JobType.FARM_WORKER and carrying_crops > 0 and worker_state == WorkerState.DELIVERING:
+				var kitchen = get_kitchen()
+				if kitchen and kitchen.has_method("can_accept_crops"):
+					if kitchen.can_accept_crops(carrying_crops):
+						deliver_crops_to_kitchen()
+					else:
+						return  # Wait for space
+			elif assigned_job.job_type == Job.JobType.WOOD_GATHERER and carrying_wood > 0 and worker_state == WorkerState.DELIVERING:
+				var wood_storage = get_wood_storage()
+				if wood_storage and wood_storage.has_method("can_accept_wood"):
+					if wood_storage.can_accept_wood(carrying_wood):
+						deliver_wood_to_storage()
+					else:
+						return  # Wait for space
+			else:
+				handle_resource_worker_cycle()
+		elif assigned_job.job_type == Job.JobType.KITCHEN_WORKER:
+			handle_kitchen_worker_cycle()
+	else:
+		go_to_house_idle()
+
+func handle_pending_delivery():
+	if carrying_crops > 0:
 		var kitchen = get_kitchen()
 		if kitchen and kitchen.has_method("can_accept_crops"):
 			if not kitchen.can_accept_crops(carrying_crops):
-				# Kitchen became full while we were pending - drop crops and go home
+				# Kitchen became full - drop crops and go home
 				print(villager_name, " kitchen became full during pending unassignment - dropping crops")
 				carrying_crops = 0
-				var material = mesh_instance.material_override as StandardMaterial3D
-				if material:
-					material.albedo_color = Color.ORANGE
+				reset_appearance()
 				complete_pending_unassignment()
 				go_to_house_idle()
 				return
 			else:
 				print("Pending unassignment - finishing crop delivery")
-				farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
-				handle_farm_worker_cycle()
+				worker_state = WorkerState.GOING_TO_STORAGE
+				handle_resource_worker_cycle()
 				return
 	
-	if assigned_job and assigned_job.should_work():
-		if assigned_job.job_type == Job.JobType.FARM_WORKER:
-			# If we're carrying crops but kitchen is full, wait
-			if carrying_crops > 0 and farm_worker_state == FarmWorkerState.DELIVERING:
-				var kitchen = get_kitchen()
-				if kitchen and kitchen.has_method("can_accept_crops"):
-					if kitchen.can_accept_crops(carrying_crops):
-						print(villager_name, " kitchen now has room - attempting delivery")
-						deliver_crops_to_kitchen()
-					else:
-						print(villager_name, " still waiting - kitchen full")
-						return  # Stay idle until kitchen has room
+	if carrying_wood > 0:
+		var wood_storage = get_wood_storage()
+		if wood_storage and wood_storage.has_method("can_accept_wood"):
+			if not wood_storage.can_accept_wood(carrying_wood):
+				# Storage became full - drop wood and go home
+				print(villager_name, " wood storage became full during pending unassignment - dropping wood")
+				carrying_wood = 0
+				reset_appearance()
+				complete_pending_unassignment()
+				go_to_house_idle()
+				return
 			else:
-				handle_farm_worker_cycle()
-		elif assigned_job.job_type == Job.JobType.KITCHEN_WORKER:
-			handle_kitchen_worker_cycle()
-	else:
-		go_to_house_idle() 
+				print("Pending unassignment - finishing wood delivery")
+				worker_state = WorkerState.GOING_TO_STORAGE
+				handle_resource_worker_cycle()
+				return
 
-func handle_farm_worker_cycle():
-	match farm_worker_state:
-		FarmWorkerState.GOING_TO_FARM:
+func handle_resource_worker_cycle():
+	match assigned_job.job_type:
+		Job.JobType.FARM_WORKER:
+			handle_farm_worker_logic()
+		Job.JobType.WOOD_GATHERER:
+			handle_wood_gatherer_logic()
+
+func handle_farm_worker_logic():
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
 			if carrying_crops == 0:
 				var farm = assigned_job.workplace
 				if farm and farm.has_method("get_work_position"):
@@ -137,17 +206,15 @@ func handle_farm_worker_cycle():
 						print("Walking to farm entry point: ", farm_entry)
 						walk_to_position(farm_entry, "farm")
 			else:
-				farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
-				handle_farm_worker_cycle()
+				worker_state = WorkerState.GOING_TO_STORAGE
+				handle_resource_worker_cycle()
 		
-		FarmWorkerState.GOING_TO_KITCHEN:
+		WorkerState.GOING_TO_STORAGE:
 			if carrying_crops > 0:
 				var kitchen = get_kitchen()
 				if kitchen and kitchen.has_method("get_work_position"):
-					# NEW: Check if kitchen has room before going there
 					if kitchen.has_method("can_accept_crops") and not kitchen.can_accept_crops(carrying_crops):
 						print(villager_name, " waiting - kitchen full! ", kitchen.get_storage_status() if kitchen.has_method("get_storage_status") else "")
-						# Stay in current state and position - we'll check again next frame
 						return
 					
 					var kitchen_entry = kitchen.get_work_position()
@@ -155,8 +222,38 @@ func handle_farm_worker_cycle():
 						print("Walking to kitchen entry point: ", kitchen_entry)
 						walk_to_position(kitchen_entry, "kitchen")
 			else:
-				farm_worker_state = FarmWorkerState.GOING_TO_FARM
-				handle_farm_worker_cycle()
+				worker_state = WorkerState.GOING_TO_SOURCE
+				handle_resource_worker_cycle()
+
+func handle_wood_gatherer_logic():
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if carrying_wood == 0:
+				var heartwood = get_heartwood()
+				if heartwood and heartwood.has_method("get_work_position"):
+					var heartwood_entry = heartwood.get_work_position()
+					if global_position.distance_to(heartwood_entry) > 1.5:
+						print("Walking to heartwood entry point: ", heartwood_entry)
+						walk_to_position(heartwood_entry, "heartwood")
+			else:
+				worker_state = WorkerState.GOING_TO_STORAGE
+				handle_resource_worker_cycle()
+		
+		WorkerState.GOING_TO_STORAGE:
+			if carrying_wood > 0:
+				var wood_storage = get_wood_storage()
+				if wood_storage and wood_storage.has_method("get_work_position"):
+					if wood_storage.has_method("can_accept_wood") and not wood_storage.can_accept_wood(carrying_wood):
+						print(villager_name, " waiting - wood storage full! ", wood_storage.get_storage_status() if wood_storage.has_method("get_storage_status") else "")
+						return
+					
+					var storage_entry = wood_storage.get_work_position()
+					if global_position.distance_to(storage_entry) > 1.5:
+						print("Walking to wood storage entry point: ", storage_entry)
+						walk_to_position(storage_entry, "wood_storage")
+			else:
+				worker_state = WorkerState.GOING_TO_SOURCE
+				handle_resource_worker_cycle()
 
 func handle_kitchen_worker_cycle():
 	var kitchen = get_kitchen()
@@ -215,6 +312,8 @@ func check_arrival_action():
 		match assigned_job.job_type:
 			Job.JobType.FARM_WORKER:
 				handle_farm_worker_arrival()
+			Job.JobType.WOOD_GATHERER:
+				handle_wood_gatherer_arrival()
 			Job.JobType.KITCHEN_WORKER:
 				handle_kitchen_worker_arrival()
 
@@ -222,26 +321,51 @@ func handle_farm_worker_arrival():
 	var farm = assigned_job.workplace
 	var kitchen = get_kitchen()
 	
-	match farm_worker_state:
-		FarmWorkerState.GOING_TO_FARM:
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
 			if farm and farm.has_method("get_work_position"):
 				var farm_entry = farm.get_work_position()
 				if global_position.distance_to(farm_entry) < 2.0:
 					print("At farm entry, teleporting to work spot")
 					var work_spot = farm.get_actual_work_spot()
 					global_position = work_spot
-					farm_worker_state = FarmWorkerState.HARVESTING
+					worker_state = WorkerState.GATHERING
 					start_working()
 		
-		FarmWorkerState.GOING_TO_KITCHEN:
+		WorkerState.GOING_TO_STORAGE:
 			if kitchen and kitchen.has_method("get_work_position"):
 				var kitchen_entry = kitchen.get_work_position()
 				if global_position.distance_to(kitchen_entry) < 2.0:
 					print("At kitchen entry, teleporting to work spot")
 					var work_spot = kitchen.get_actual_work_spot()
 					global_position = work_spot
-					farm_worker_state = FarmWorkerState.DELIVERING
+					worker_state = WorkerState.DELIVERING
 					deliver_crops_to_kitchen()
+
+func handle_wood_gatherer_arrival():
+	var heartwood = get_heartwood()
+	var wood_storage = get_wood_storage()
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if heartwood and heartwood.has_method("get_work_position"):
+				var heartwood_entry = heartwood.get_work_position()
+				if global_position.distance_to(heartwood_entry) < 2.0:
+					print("At heartwood entry, teleporting to work spot")
+					var work_spot = heartwood.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.GATHERING
+					start_working()
+		
+		WorkerState.GOING_TO_STORAGE:
+			if wood_storage and wood_storage.has_method("get_work_position"):
+				var storage_entry = wood_storage.get_work_position()
+				if global_position.distance_to(storage_entry) < 2.0:
+					print("At wood storage entry, teleporting to work spot")
+					var work_spot = wood_storage.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.DELIVERING
+					deliver_wood_to_storage()
 
 func handle_kitchen_worker_arrival():
 	var kitchen = get_kitchen()
@@ -271,17 +395,20 @@ func complete_work():
 	job_completed.emit()
 
 func perform_job_action():
-	if assigned_job.job_type == Job.JobType.FARM_WORKER:
-		perform_farm_work()
-	elif assigned_job.job_type == Job.JobType.KITCHEN_WORKER:
-		perform_kitchen_work()
+	match assigned_job.job_type:
+		Job.JobType.FARM_WORKER:
+			perform_farm_work()
+		Job.JobType.WOOD_GATHERER:
+			perform_wood_gathering()
+		Job.JobType.KITCHEN_WORKER:
+			perform_kitchen_work()
 
 func perform_farm_work():
 	var farm = assigned_job.workplace
 	if farm and farm.has_method("harvest_crop"):
 		if farm.harvest_crop():
 			carrying_crops = 1
-			farm_worker_state = FarmWorkerState.GOING_TO_KITCHEN
+			worker_state = WorkerState.GOING_TO_STORAGE
 			
 			var material = mesh_instance.material_override as StandardMaterial3D
 			if material:
@@ -289,7 +416,7 @@ func perform_farm_work():
 			
 			print(villager_name, " finished harvesting")
 			
-			# IMPORTANT: Teleport back to farm exit BEFORE pathfinding
+			# Teleport back to farm exit BEFORE pathfinding
 			var farm_exit = farm.get_work_position()
 			print("Teleporting from work spot to farm exit: ", farm_exit)
 			global_position = farm_exit
@@ -299,6 +426,31 @@ func perform_farm_work():
 			var kitchen = get_kitchen()
 			if kitchen:
 				walk_to_position(kitchen.get_work_position(), "kitchen")
+
+func perform_wood_gathering():
+	var heartwood = assigned_job.workplace
+	if heartwood and heartwood.has_method("gather_wood"):
+		if heartwood.gather_wood():
+			carrying_wood = 1
+			worker_state = WorkerState.GOING_TO_STORAGE
+			
+			# Change color to indicate carrying wood (brown)
+			var material = mesh_instance.material_override as StandardMaterial3D
+			if material:
+				material.albedo_color = Color(0.6, 0.4, 0.2)  # Brown for wood
+			
+			print(villager_name, " finished gathering wood")
+			
+			# Teleport back to heartwood exit
+			var heartwood_exit = heartwood.get_work_position()
+			print("Teleporting from work spot to heartwood exit: ", heartwood_exit)
+			global_position = heartwood_exit
+			global_position.y = 0.1
+			
+			# Now pathfind to wood storage
+			var wood_storage = get_wood_storage()
+			if wood_storage:
+				walk_to_position(wood_storage.get_work_position(), "wood_storage")
 
 func perform_kitchen_work():
 	var kitchen = get_kitchen()
@@ -318,22 +470,17 @@ func deliver_crops_to_kitchen():
 		# Double-check that kitchen can accept crops
 		if kitchen.has_method("can_accept_crops") and not kitchen.can_accept_crops(carrying_crops):
 			print(villager_name, " cannot deliver - kitchen became full! Waiting...")
-			# Teleport back to kitchen entry and wait
 			var kitchen_exit = kitchen.get_work_position()
 			global_position = kitchen_exit
 			global_position.y = 0.1
-			# Stay in DELIVERING state - will retry when kitchen has space
 			return
 		
 		if kitchen.add_crops(carrying_crops):
 			print(villager_name, " delivered ", carrying_crops, " crop(s)")
 			carrying_crops = 0
+			reset_appearance()
 			
-			var material = mesh_instance.material_override as StandardMaterial3D
-			if material:
-				material.albedo_color = Color.ORANGE
-			
-			# IMPORTANT: Teleport back to kitchen exit BEFORE pathfinding
+			# Teleport back to kitchen exit
 			var kitchen_exit = kitchen.get_work_position()
 			print("Teleporting from kitchen work spot to kitchen exit: ", kitchen_exit)
 			global_position = kitchen_exit
@@ -345,17 +492,57 @@ func deliver_crops_to_kitchen():
 					walk_to_position(home_house.get_entry_position(), "house")
 				return
 			
-			farm_worker_state = FarmWorkerState.GOING_TO_FARM
+			worker_state = WorkerState.GOING_TO_SOURCE
 			var farm = assigned_job.workplace
 			if farm:
 				walk_to_position(farm.get_work_position(), "farm")
-		else:
-			print(villager_name, " delivery failed - kitchen full! Waiting at kitchen...")
-			# Stay at kitchen exit and wait
-			var kitchen_exit = kitchen.get_work_position()
-			global_position = kitchen_exit
+
+func deliver_wood_to_storage():
+	var wood_storage = get_wood_storage()
+	if wood_storage and wood_storage.has_method("add_wood") and carrying_wood > 0:
+		# Check if storage can accept wood
+		if wood_storage.has_method("can_accept_wood") and not wood_storage.can_accept_wood(carrying_wood):
+			print(villager_name, " cannot deliver - wood storage became full! Waiting...")
+			var storage_exit = wood_storage.get_work_position()
+			global_position = storage_exit
 			global_position.y = 0.1
-			# Stay in DELIVERING state - will retry next frame
+			return
+		
+		if wood_storage.add_wood(carrying_wood):
+			print(villager_name, " delivered ", carrying_wood, " wood")
+			carrying_wood = 0
+			
+			# Reset color back to normal
+			var material = mesh_instance.material_override as StandardMaterial3D
+			if material:
+				material.albedo_color = Color.ORANGE
+			
+			# Teleport back to storage exit
+			var storage_exit = wood_storage.get_work_position()
+			print("Teleporting from storage work spot to storage exit: ", storage_exit)
+			global_position = storage_exit
+			global_position.y = 0.1
+			
+			if pending_unassignment:
+				complete_pending_unassignment()
+				if home_house:
+					walk_to_position(home_house.get_entry_position(), "house")
+				return
+			
+			worker_state = WorkerState.GOING_TO_SOURCE
+			var heartwood = assigned_job.workplace
+			if heartwood:
+				walk_to_position(heartwood.get_work_position(), "heartwood")
+		else:
+			print(villager_name, " delivery failed - wood storage full! Waiting...")
+			var storage_exit = wood_storage.get_work_position()
+			global_position = storage_exit
+			global_position.y = 0.1
+
+func reset_appearance():
+	var material = mesh_instance.material_override as StandardMaterial3D
+	if material:
+		material.albedo_color = Color.ORANGE
 
 func get_kitchen() -> Node3D:
 	var village = get_parent()
@@ -364,7 +551,21 @@ func get_kitchen() -> Node3D:
 			return child
 	return null
 
-# Job assignment functions remain the same...
+func get_heartwood() -> Node3D:
+	var village = get_parent()
+	for child in village.get_children():
+		if child.has_method("is_heartwood"):
+			return child
+	return null
+
+func get_wood_storage() -> Node3D:
+	var village = get_parent()
+	for child in village.get_children():
+		if child.has_method("is_wood_storage"):
+			return child
+	return null
+
+# Job assignment functions
 func assign_job(job: Job):
 	if assigned_job and assigned_job != job:
 		unassign_job()
@@ -377,63 +578,68 @@ func assign_job(job: Job):
 		job.assign_villager(self)
 		print(villager_name, " assigned to job: ", job.job_type)
 		
-		if job.job_type == Job.JobType.FARM_WORKER:
-			farm_worker_state = FarmWorkerState.GOING_TO_FARM
-			carrying_crops = 0
-			
-			var material = mesh_instance.material_override as StandardMaterial3D
-			if material:
-				material.albedo_color = Color.ORANGE
+		# Reset state and resources based on job type
+		match job.job_type:
+			Job.JobType.FARM_WORKER:
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+			Job.JobType.WOOD_GATHERER:
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+		
+		# Reset visual appearance
+		var material = mesh_instance.material_override as StandardMaterial3D
+		if material:
+			material.albedo_color = Color.ORANGE
 
 func unassign_job():
 	if assigned_job:
-		if carrying_crops > 0:
-			var kitchen = get_kitchen()
-			# NEW: If kitchen is full, drop crops and go home immediately
-			if kitchen and kitchen.has_method("can_accept_crops") and not kitchen.can_accept_crops(carrying_crops):
-				print(villager_name, " unassigned with crops but kitchen full - dropping crops and going home")
-				# Drop the crops (they're lost)
+		var has_resources = carrying_crops > 0 or carrying_wood > 0
+		
+		if has_resources:
+			# Check if we can deliver resources
+			var can_deliver = false
+			
+			if carrying_crops > 0:
+				var kitchen = get_kitchen()
+				if kitchen and kitchen.has_method("can_accept_crops") and kitchen.can_accept_crops(carrying_crops):
+					can_deliver = true
+			
+			if carrying_wood > 0:
+				var wood_storage = get_wood_storage()
+				if wood_storage and wood_storage.has_method("can_accept_wood") and wood_storage.can_accept_wood(carrying_wood):
+					can_deliver = true
+			
+			if can_deliver:
+				print("Will finish delivery before going home")
+				pending_unassignment = true
+				return
+			else:
+				# Drop resources and go home immediately
+				print(villager_name, " unassigned with resources but storage full - dropping resources")
 				carrying_crops = 0
-				farm_worker_state = FarmWorkerState.GOING_TO_FARM
+				carrying_wood = 0
 				
 				# Reset appearance
 				var material = mesh_instance.material_override as StandardMaterial3D
 				if material:
 					material.albedo_color = Color.ORANGE
-				
-				# Clear job assignment
-				assigned_job.unassign_villager()
-				assigned_job = null
-				pending_unassignment = false
-				
-				# Stop current movement and go home
-				if current_state == State.WALKING:
-					grid_movement.stop_movement()
-				
-				go_to_house_idle()
-				print(villager_name, " dropped crops and going home (kitchen was full)")
-				return
-			else:
-				# Kitchen has room - use pending unassignment logic
-				print("Will finish delivery before going home (kitchen has room)")
-				pending_unassignment = true
-				return
-		else:
-			# No crops to deliver - unassign immediately
-			assigned_job.unassign_villager()
-			assigned_job = null
-			
-			farm_worker_state = FarmWorkerState.GOING_TO_FARM
-			carrying_crops = 0
-			pending_unassignment = false
-			
-			var material = mesh_instance.material_override as StandardMaterial3D
-			if material:
-				material.albedo_color = Color.ORANGE
-			
-			if current_state == State.WALKING:
-				grid_movement.stop_movement()
-				go_to_house_idle()
+		
+		# Clear job assignment
+		assigned_job.unassign_villager()
+		assigned_job = null
+		pending_unassignment = false
+		
+		worker_state = WorkerState.GOING_TO_SOURCE
+		carrying_crops = 0
+		carrying_wood = 0
+		
+		if current_state == State.WALKING:
+			grid_movement.stop_movement()
+		
+		go_to_house_idle()
 
 func complete_pending_unassignment():
 	if pending_unassignment:
@@ -441,8 +647,9 @@ func complete_pending_unassignment():
 			assigned_job.unassign_villager()
 		assigned_job = null
 		
-		farm_worker_state = FarmWorkerState.GOING_TO_FARM
+		worker_state = WorkerState.GOING_TO_SOURCE
 		carrying_crops = 0
+		carrying_wood = 0
 		pending_unassignment = false
 		
 		var material = mesh_instance.material_override as StandardMaterial3D
@@ -460,33 +667,34 @@ func _on_house_moved(building: BuildableBuilding, new_position: Vector2i):
 		print("Immediately redirecting to new house location")
 		var new_house_target = building.get_entry_position()
 		
-		# Use the new redirect function for immediate response
 		if grid_movement.redirect_to_position(new_house_target):
 			walking_toward = "house"
 			current_state = State.WALKING
 		else:
 			print("Failed to redirect to new house position")
 	else:
-		print("House moved but villager not affected (state: ", State.keys()[current_state], ", walking toward: ", walking_toward, ")")
+		print("House moved but villager not affected")
 
 func _on_workplace_moved(building: BuildableBuilding, new_position: Vector2i):
 	print("=== WORKPLACE MOVED ===")
 	print(villager_name, "'s workplace moved to: ", new_position)
 	print("Currently walking toward: ", walking_toward)
 	
-	# Only update navigation if we were walking to the workplace
-	if current_state == State.WALKING and (walking_toward == "farm" or walking_toward == "kitchen"):
+	if current_state == State.WALKING and (walking_toward == "farm" or walking_toward == "kitchen" or walking_toward == "heartwood" or walking_toward == "wood_storage"):
 		var new_target = Vector3.ZERO
 		
 		if walking_toward == "farm" and building == assigned_job.workplace:
 			new_target = assigned_job.workplace.get_work_position()
+		elif walking_toward == "heartwood" and building == assigned_job.workplace:
+			new_target = assigned_job.workplace.get_work_position()
 		elif walking_toward == "kitchen" and building.has_method("is_kitchen"):
+			new_target = building.get_work_position()
+		elif walking_toward == "wood_storage" and building.has_method("is_wood_storage"):
 			new_target = building.get_work_position()
 		
 		if new_target != Vector3.ZERO:
 			print("Immediately redirecting to new workplace location")
 			if grid_movement.redirect_to_position(new_target):
-				# walking_toward stays the same
 				pass
 			else:
 				print("Failed to redirect to new workplace position")

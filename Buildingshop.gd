@@ -176,7 +176,7 @@ func purchase_building(building_data: BuildingData) -> bool:
 	return false
 
 func get_resources_text() -> String:
-	return "Wood: %d | Stone: %d | Meals: %d" % [player_wood, player_stone, player_meals]
+	return "Meals: %d | Wood: %d" % [player_meals, player_wood]
 
 # Debug function to set player level for testing
 func set_player_level(level: int):

@@ -9,6 +9,7 @@ extends BuildableBuilding
 func _ready():
 	building_name = "Kitchen"
 	building_size = Vector2i(3, 3)
+	is_permanent = true 
 	
 	setup_collision()
 	

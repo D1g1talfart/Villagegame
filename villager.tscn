@@ -20,8 +20,6 @@ rings = 1
 
 [node name="Villager" type="CharacterBody3D"]
 script = ExtResource("1_vucva")
-movement_speed = 2.5
-work_duration = 3.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 mesh = SubResource("CapsuleMesh_vucva")

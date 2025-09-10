@@ -89,6 +89,8 @@ func setup_ui():
 			job_name = "Farm Worker"
 		Job.JobType.KITCHEN_WORKER:
 			job_name = "Kitchen Worker"
+		Job.JobType.WOOD_GATHERER:
+			job_name = "Wood Cutter"
 		_:
 			job_name = "Unknown Job"
 	

@@ -31,7 +31,7 @@ func setup_ui():
 	main_container.anchor_right = 1.0
 	main_container.anchor_top = 0.0
 	main_container.anchor_bottom = 1.0
-	main_container.offset_left = -120
+	main_container.offset_left = -150
 	main_container.offset_top = 20
 	main_container.add_theme_constant_override("separation", 10)
 	add_child(main_container)
@@ -63,13 +63,13 @@ func setup_ui():
 
 
 func create_resource_display(parent: VBoxContainer):
-	# Resource panel background
+	# Resource panel background - make it wider for more resources
 	var resource_panel = Panel.new()
-	resource_panel.custom_minimum_size = Vector2(100, 60)
+	resource_panel.custom_minimum_size = Vector2(140, 80)
 	
-	# Style the panel
+	# Style the panel (same as before)
 	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.2, 0.2, 0.3, 0.8)  # Semi-transparent dark
+	panel_style.bg_color = Color(0.2, 0.2, 0.3, 0.8)
 	panel_style.border_width_left = 2
 	panel_style.border_width_right = 2
 	panel_style.border_width_top = 2
@@ -83,10 +83,10 @@ func create_resource_display(parent: VBoxContainer):
 	
 	# Resource text
 	resource_label = Label.new()
-	resource_label.text = "Meals: 0/0"
+	resource_label.text = "Meals: 0/0 | Wood: 0/0"  # Updated initial text
 	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	resource_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	resource_label.add_theme_font_size_override("font_size", 14)
+	resource_label.add_theme_font_size_override("font_size", 12)  # Slightly smaller to fit more text
 	resource_label.add_theme_color_override("font_color", Color.WHITE)
 	
 	# Center the label in the panel
@@ -198,6 +198,18 @@ func find_kitchen():
 				return child
 	return null
 
+func find_wood_storage():
+	# Find the village scene and look for wood storage
+	var village = get_tree().get_first_node_in_group("village")
+	if not village:
+		# Fallback - look in current scene
+		village = get_tree().current_scene
+	
+	if village:
+		for child in village.get_children():
+			if child.has_method("is_wood_storage"):
+				return child
+	return null
 
 func create_shop_button(parent: VBoxContainer):
 	shop_button = Button.new()
@@ -465,15 +477,29 @@ func _on_shop_close_pressed():
 func update_resource_display():
 	if resource_label:
 		var kitchen = find_kitchen()
+		var wood_storage = find_wood_storage()
+		
+		var meals = 0
+		var max_meals = 0
+		var wood = 0
+		var max_wood = 0
+		
+		# Get meal counts
 		if kitchen:
-			var meals = kitchen.stored_meals if kitchen.has_method("stored_meals") or "stored_meals" in kitchen else 0
-			var max_meals = kitchen.max_meals if kitchen.has_method("max_meals") or "max_meals" in kitchen else 0
-			resource_label.text = "Meals: %d/%d" % [meals, max_meals]
-			
+			meals = kitchen.stored_meals if kitchen.has_method("stored_meals") or "stored_meals" in kitchen else 0
+			max_meals = kitchen.max_meals if kitchen.has_method("max_meals") or "max_meals" in kitchen else 0
 			# Update building shop meals count
 			BuildingShop.player_meals = meals
-		else:
-			resource_label.text = "Meals: 0/0"
+		
+		# Get wood counts
+		if wood_storage:
+			wood = wood_storage.stored_wood if wood_storage.has_method("stored_wood") or "stored_wood" in wood_storage else 0
+			max_wood = wood_storage.max_wood if wood_storage.has_method("max_wood") or "max_wood" in wood_storage else 0
+			# Update building shop wood count (you'll need to add this to BuildingShop)
+			BuildingShop.player_wood = wood
+		
+		# Update the display to show both resources
+		resource_label.text = "Meals: %d/%d\nWood: %d/%d" % [meals, max_meals, wood, max_wood]
 	
 	# Update shop display if it's open
 	if building_shop_ui and building_shop_ui.visible:

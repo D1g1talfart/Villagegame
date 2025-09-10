@@ -7,6 +7,7 @@ signal building_moved(building, new_position)
 
 @export var building_name: String = "Building"
 @export var building_size: Vector2i = Vector2i(1, 1)
+@export var is_permanent: bool = false
 
 var is_selected: bool = false
 var original_material: Material

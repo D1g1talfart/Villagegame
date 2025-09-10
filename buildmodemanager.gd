@@ -51,14 +51,19 @@ func handle_build_mode_click():
 	if result:
 		var collider = result.collider
 		if collider is BuildableBuilding:
+			# NEW: Check if building is permanent
+			if collider.is_permanent:
+				print("Cannot move ", collider.building_name, " - it's a permanent building!")
+				return
+			
 			print("Clicked on building: ", collider.building_name)
 			select_building(collider)
 			return
 	
 	if selected_building:
 		attempt_move_selected_building()
-	else:
-		print("Clicked on empty space, no building selected")
+
+
 
 func handle_placement_click():
 	print("Attempting to place new building: ", building_to_place.display_name)
@@ -208,6 +213,11 @@ func toggle_build_mode():
 
 # Rest of existing functions stay the same...
 func select_building(building: BuildableBuilding):
+	# NEW: Don't select permanent buildings
+	if building.is_permanent:
+		print("Cannot select ", building.building_name, " - it's permanent!")
+		return
+	
 	if selected_building != building:
 		selected_building = building
 		building_selection_changed.emit(building)

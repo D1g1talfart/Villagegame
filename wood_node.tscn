@@ -1,0 +1,29 @@
+[gd_scene load_steps=6 format=3 uid="uid://dlee3bp7oncck"]
+
+[ext_resource type="Script" uid="uid://bvwpsjanxvpcs" path="res://wood_node.gd" id="1_jpiax"]
+[ext_resource type="Material" uid="uid://bxs25ddqmxsva" path="res://Materials/house.tres" id="2_7r4ik"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_7r4ik"]
+height = 3.98
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_i61tk"]
+size = Vector3(3, 1, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_jpiax"]
+material = ExtResource("2_7r4ik")
+size = Vector3(3, 0.2, 3)
+
+[node name="Wood Node" type="StaticBody3D"]
+script = ExtResource("1_jpiax")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.86727, 1)
+mesh = SubResource("CylinderMesh_7r4ik")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_i61tk")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -0.0946684, 1)
+mesh = SubResource("BoxMesh_jpiax")
+skeleton = NodePath("../MeshInstance3D")

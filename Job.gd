@@ -1,8 +1,8 @@
-# Create Job.gd
+# Job.gd - Add wood gathering job type
 extends RefCounted
 class_name Job
 
-enum JobType { IDLE, FARM_WORKER, KITCHEN_WORKER }
+enum JobType { IDLE, FARM_WORKER, KITCHEN_WORKER, WOOD_GATHERER }
 
 var job_type: JobType
 var workplace: Node3D
@@ -24,11 +24,10 @@ func assign_villager(villager: Villager) -> bool:
 func unassign_villager():
 	assigned_villager = null
 
-# Override in subclasses
 func get_work_position() -> Vector3:
 	if workplace:
 		return workplace.global_position
 	return Vector3.ZERO
 
 func should_work() -> bool:
-	return true  # Override in subclasses
+	return true
