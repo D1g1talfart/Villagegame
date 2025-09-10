@@ -5,11 +5,12 @@
 [ext_resource type="Material" uid="uid://fros71psmags" path="res://Materials/Soup.tres" id="3_rlrs5"]
 
 [sub_resource type="Gradient" id="Gradient_rlrs5"]
+offsets = PackedFloat32Array(0, 0.5)
 colors = PackedColorArray(0.450345, 0.224102, 0.127262, 1, 0.2915, 0.136833, 0.0763707, 1)
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_axvxv"]
-noise_type = 2
-frequency = 0.2004
+noise_type = 5
+frequency = 0.4869
 fractal_type = 0
 fractal_octaves = 1
 
@@ -36,7 +37,6 @@ size = Vector3(3, 0.5, 3)
 size = Vector3(3, 1, 3)
 
 [sub_resource type="Gradient" id="Gradient_axvxv"]
-offsets = PackedFloat32Array(0, 0.452381)
 colors = PackedColorArray(1, 0.948333, 0.69, 1, 0.613442, 0.227753, 0.085534, 1)
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_eqcb7"]

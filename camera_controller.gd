@@ -7,7 +7,8 @@ var zoom_speed = 2.0
 var pan_speed = 10.0
 var min_zoom = 5.0
 var max_zoom = 50.0
-var map_bounds = Vector2(49, 49)  # Your map size
+var map_size = 49  # Number of tiles
+var map_center = Vector3(24, 0, 24)  # Center of your 49x49 map
 
 # Touch/mouse input tracking
 var is_dragging = false
@@ -18,8 +19,8 @@ func _ready():
 	setup_camera()
 
 func setup_camera():
-	# Position camera for isometric view
-	position = Vector3(24.5, 0, 24.5)  # Center of your 49x49 map
+	# Position camera at the center of your map
+	position = map_center
 	
 	# Set up the camera
 	camera.position = Vector3(0, 25, 25)
@@ -92,9 +93,9 @@ func handle_pan_drag(event):
 	else:
 		return
 	
-	# Calculate movement
+	# Calculate movement - BACK TO YOUR ORIGINAL (this was correct!)
 	var drag_delta = drag_start_position - current_position
-	var movement_scale = camera.size * 0.001  # Scale movement with zoom level
+	var movement_scale = camera.size * 0.001
 	
 	# Convert screen movement to world movement (accounting for isometric view)
 	var world_delta = Vector3(
@@ -127,12 +128,12 @@ func end_drag():
 	is_dragging = false
 
 func clamp_camera_position(pos: Vector3) -> Vector3:
-	# Keep camera within map bounds with some padding
-	var padding = camera.size * 0.3
-	var min_x = -padding
-	var max_x = map_bounds.x + padding
-	var min_z = -padding
-	var max_z = map_bounds.y + padding
+	# Measured camera bounds with small buffer
+	var buffer = 2.0
+	var min_x = 17.0 - buffer
+	var max_x = 66.0 + buffer
+	var min_z = -8.0 - buffer  
+	var max_z = 41.0 + buffer
 	
 	return Vector3(
 		clamp(pos.x, min_x, max_x),
