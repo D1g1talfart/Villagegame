@@ -12,6 +12,8 @@ func _ready():
 	building_size = Vector2i(2, 2)
 	super._ready()
 	
+	add_to_group("wood_storage")  # Add this line
+	
 	setup_work_positions()
 	setup_navigation_obstacle()
 	
@@ -67,3 +69,12 @@ func is_wood_storage() -> bool:
 
 func get_storage_status() -> String:
 	return "Wood: %d/%d" % [stored_wood, max_wood]
+
+func remove_wood(amount: int) -> bool:
+	if stored_wood >= amount:
+		stored_wood -= amount
+		print("Wood Storage: Removed ", amount, " wood. Remaining: ", stored_wood, "/", max_wood)
+		return true
+	else:
+		print("Wood Storage: Not enough wood to remove!")
+		return false

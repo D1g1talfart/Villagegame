@@ -473,37 +473,62 @@ func _on_shop_close_pressed():
 	# Consume the input event to prevent click-through
 	get_viewport().set_input_as_handled()
 
-# Update the existing update_resource_display to also update shop if open
 func update_resource_display():
 	if resource_label:
 		var kitchen = find_kitchen()
 		var wood_storage = find_wood_storage()
+		var gold_storage = find_gold_storage()  # New function needed
+		var stone_storage = find_stone_storage()  # New function needed
 		
-		var meals = 0
+		var meals = 0  # Keep meals for kitchen display, but don't use for building costs
 		var max_meals = 0
 		var wood = 0
 		var max_wood = 0
+		var gold = 0  # New
+		var max_gold = 0  # New
+		var stone = 0  # New
+		var max_stone = 0  # New
 		
-		# Get meal counts
+		# Get meal counts (still used for villager food)
 		if kitchen:
 			meals = kitchen.stored_meals if kitchen.has_method("stored_meals") or "stored_meals" in kitchen else 0
 			max_meals = kitchen.max_meals if kitchen.has_method("max_meals") or "max_meals" in kitchen else 0
-			# Update building shop meals count
-			BuildingShop.player_meals = meals
 		
 		# Get wood counts
 		if wood_storage:
 			wood = wood_storage.stored_wood if wood_storage.has_method("stored_wood") or "stored_wood" in wood_storage else 0
 			max_wood = wood_storage.max_wood if wood_storage.has_method("max_wood") or "max_wood" in wood_storage else 0
-			# Update building shop wood count (you'll need to add this to BuildingShop)
-			BuildingShop.player_wood = wood
 		
-		# Update the display to show both resources
-		resource_label.text = "Meals: %d/%d\nWood: %d/%d" % [meals, max_meals, wood, max_wood]
+		# Get gold counts
+		if gold_storage:
+			gold = gold_storage.stored_gold if gold_storage.has_method("stored_gold") or "stored_gold" in gold_storage else 0
+			max_gold = gold_storage.max_gold if gold_storage.has_method("max_gold") or "max_gold" in gold_storage else 0
+		
+		# Get stone counts
+		if stone_storage:
+			stone = stone_storage.stored_stone if stone_storage.has_method("stored_stone") or "stored_stone" in stone_storage else 0
+			max_stone = stone_storage.max_stone if stone_storage.has_method("max_stone") or "max_stone" in stone_storage else 0
+		
+		# Update building shop resource counts
+		BuildingShop.player_wood = wood
+		BuildingShop.player_gold = gold  # Changed from player_meals
+		BuildingShop.player_stone = stone  # New
+		
+		# Update the display to show all resources
+		resource_label.text = "Meals: %d/%d\nWood: %d/%d\nGold: %d/%d\nStone: %d/%d" % [meals, max_meals, wood, max_wood, gold, max_gold, stone, max_stone]
 	
 	# Update shop display if it's open
 	if building_shop_ui and building_shop_ui.visible:
 		populate_shop()
+
+# You'll need to add these new functions to find your storage buildings:
+func find_gold_storage():
+	var gold_storages = get_tree().get_nodes_in_group("gold_storage")
+	return gold_storages[0] if gold_storages.size() > 0 else null
+
+func find_stone_storage():
+	var stone_storages = get_tree().get_nodes_in_group("stone_storage")
+	return stone_storages[0] if stone_storages.size() > 0 else null
 
 
 func _input(event):

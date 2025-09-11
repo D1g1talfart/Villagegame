@@ -1,12 +1,12 @@
-# BuildingShop.gd - Replace with this updated version
+# BuildingShop.gd - Updated version with your Level 1-4 progression
 extends Node
 
 signal building_purchased(building_data: BuildingData)
 
 var player_level: int = 1
-var player_wood: int = 10
-var player_stone: int = 5
-var player_meals: int = 0
+var player_wood: int = 50  # Starting with more wood for testing
+var player_stone: int = 10
+var player_gold: int = 1000  # Replaced meals with gold
 
 var available_buildings: Array[BuildingData] = []
 var building_counts: Dictionary = {}  # BuildingType -> count
@@ -33,105 +33,134 @@ func setup_building_data():
 	print("BuildingShop: Setting up building data...")
 	available_buildings.clear()
 	
-	# FARM - First is on map, 2nd needs level 3, 3rd needs level 7, then every 3 levels
+	# HOUSE - 3 at level 1, 4th at level 2, 5th at level 4
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.HOUSE, 
+		"Villager Home", 
+		"Houses for your villagers to live in",
+		[1, 1, 1, 2, 4],    # 3 houses at level 1, 4th at level 2, 5th at level 4
+		5,                  # wood cost
+		0,                  # stone cost  
+		0,                  # gold cost
+		Vector2i(1, 2),     # building_size
+		"res://house.tscn", # path
+		5                   # max 5 houses total
+	))
+	
+	# GOLD COIN STORAGE - Available at level 1
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.GOLD_STORAGE, 
+		"Gold Coin Storage", 
+		"Stores your gold coins safely",
+		[1],                # Available at level 1
+		10,                 # wood cost
+		0,                  # stone cost
+		0,                  # gold cost
+		Vector2i(2, 2),     # building_size
+		"",                 # path (not implemented yet)
+		1                   # max 1
+	))
+	
+	# STONE STORAGE - Available at level 2
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.STONE_STORAGE, 
+		"Stone Storage", 
+		"Stores stone and building materials",
+		[2],                # Available at level 2
+		10,                 # wood cost
+		0,                  # stone cost
+		200,                # gold cost
+		Vector2i(2, 2),     # building_size
+		"",                 # path
+		1                   # max 1
+	))
+	
+	# RABBIT HUTCH - Available at level 3
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.RABBIT_HUTCH, 
+		"Rabbit Hutch", 
+		"Raises rabbits for food and resources",
+		[3],                # Available at level 3
+		20,                 # wood cost
+		5,                  # stone cost
+		500,                # gold cost
+		Vector2i(2, 2),     # building_size
+		"",                 # path
+		1                   # max 1
+	))
+	
+	# WAREHOUSE - Available at level 3
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.WAREHOUSE, 
+		"Warehouse", 
+		"Large storage for all your goods",
+		[3],                # Available at level 3
+		30,                 # wood cost
+		15,                 # stone cost
+		500,                # gold cost
+		Vector2i(3, 2),     # building_size
+		"",                 # path
+		1                   # max 1
+	))
+	
+	# ORNAMENT WORKSHOP - Available at level 3
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.ORNAMENT_WORKSHOP, 
+		"Ornament Workshop", 
+		"Crafts decorative items and ornaments",
+		[3],                # Available at level 3
+		30,                 # wood cost
+		20,                 # stone cost
+		800,                # gold cost
+		Vector2i(2, 2),     # building_size
+		"",                 # path
+		1                   # max 1
+	))
+	
+	# FARM - Second farm available at level 4
 	available_buildings.append(BuildingData.new(
 		BuildingData.BuildingType.FARM, 
 		"Farm", 
-		"Produces crops for villagers to harvest",
-		[1, 3, 7, 10, 13, 16, 19],  # level_reqs parameter (4th)
-		3,                          # wood
-		0,                          # stone  
-		0,                          # meals
-		Vector2i(2, 2),            # building_size
-		"res://farm.tscn"          # path
-		# max_count defaults to -1 (unlimited)
-	))
-	
-	# HOUSE - Gets easier: level 1, 2, 3, 4, 5... (one per level after first)
-	available_buildings.append(BuildingData.new(
-		BuildingData.BuildingType.HOUSE, 
-		"House", 
-		"Provides housing for villagers",
-		[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # level_reqs parameter (4th)
-		5,                                  # wood
-		2,                                  # stone
-		0,                                  # meals
-		Vector2i(1, 2),                    # building_size
-		"res://house.tscn"                 # path
-		# max_count defaults to -1 (unlimited)
-	))
-	
-	# BAKERY - Single building, high level requirement
-	available_buildings.append(BuildingData.new(
-		BuildingData.BuildingType.BAKERY, 
-		"Bakery", 
-		"Converts crops into bread more efficiently",
-		[5],                # level_reqs parameter (4th) - only one level
-		8,                  # wood
-		4,                  # stone
-		2,                  # meals
+		"Produces crops for your villagers",
+		[1, 4],             # First farm exists, second at level 4
+		30,                 # wood cost (more expensive than first)
+		0,                  # stone cost  
+		0,                  # gold cost
 		Vector2i(2, 2),     # building_size
-		"",                 # path (empty since not implemented)
-		1                   # max_count = 1
+		"res://farm.tscn",  # path
+		2                   # max 2 farms
 	))
 	
-	# LUMBER MILL - Two maximum, increasing requirements
+	# PLANK STORAGE - Available at level 4
 	available_buildings.append(BuildingData.new(
-		BuildingData.BuildingType.LUMBER_MILL, 
-		"Lumber Mill", 
-		"Produces wood from nearby trees",
-		[2, 6],             # level_reqs parameter (4th) - first needs level 2, second needs level 6
-		0,                  # wood
-		6,                  # stone
-		3,                  # meals
+		BuildingData.BuildingType.PLANK_STORAGE, 
+		"Plank Storage", 
+		"Specialized storage for processed wood planks",
+		[4],                # Available at level 4
+		50,                 # wood cost
+		30,                 # stone cost
+		1500,               # gold cost
 		Vector2i(2, 3),     # building_size
 		"",                 # path
-		2                   # max_count = 2
+		1                   # max 1
 	))
 	
-	# WORKSHOP - Single building, very high level
+	# PLANK WORKSHOP - Available at level 4
 	available_buildings.append(BuildingData.new(
-		BuildingData.BuildingType.WORKSHOP, 
-		"Workshop", 
-		"Crafts tools and advanced items",
-		[8],                # level_reqs parameter (4th) - single workshop, needs level 8
-		12,                 # wood
-		8,                  # stone
-		5,                  # meals
-		Vector2i(3, 2),     # building_size
-		"",                 # path
-		1                   # max_count = 1
-	))
-	
-	# MINE - Multiple mines, but expensive level-wise
-	available_buildings.append(BuildingData.new(
-		BuildingData.BuildingType.MINE, 
-		"Stone Mine", 
-		"Extracts stone and minerals",
-		[4, 7, 11, 15],     # level_reqs parameter (4th) - progressive requirements, big jumps
-		10,                 # wood
-		0,                  # stone
-		4,                  # meals
+		BuildingData.BuildingType.PLANK_WORKSHOP, 
+		"Plank Workshop", 
+		"Converts raw wood into refined planks",
+		[4],                # Available at level 4
+		30,                 # wood cost
+		50,                 # stone cost
+		1500,               # gold cost
 		Vector2i(2, 2),     # building_size
-		""                  # path
-		# max_count defaults to -1 (unlimited)
-	))
-	
-	# TAVERN - Single building, end-game
-	available_buildings.append(BuildingData.new(
-		BuildingData.BuildingType.TAVERN, 
-		"Tavern", 
-		"Attracts new villagers to your settlement",
-		[10],               # level_reqs parameter (4th) - very high level requirement
-		15,                 # wood
-		10,                 # stone
-		8,                  # meals
-		Vector2i(3, 3),     # building_size
 		"",                 # path
-		1                   # max_count = 1
+		1                   # max 1
 	))
 	
-	print("BuildingShop: Added ", available_buildings.size(), " buildings with progressive requirements")
+	print("BuildingShop: Added ", available_buildings.size(), " buildings for levels 1-4")
+
 func get_building_count(building_type: BuildingData.BuildingType) -> int:
 	return building_counts.get(building_type, 0)
 
@@ -154,29 +183,57 @@ func can_purchase_building(building_data: BuildingData) -> bool:
 	
 	var required_level = get_next_level_requirement(building_data)
 	var meets_level = player_level >= required_level
-	var can_afford = building_data.can_afford(player_wood, player_stone, player_meals)
+	var can_afford = building_data.can_afford(player_wood, player_stone, player_gold)  # Changed from meals to gold
 	
 	return meets_level and can_afford
 
 func purchase_building(building_data: BuildingData) -> bool:
 	if can_purchase_building(building_data):
-		player_wood -= building_data.cost_wood
-		player_stone -= building_data.cost_stone
-		player_meals -= building_data.cost_meals
+		# Actually deduct resources from storage buildings instead of just counters
+		var success = deduct_resources(building_data.cost_wood, building_data.cost_stone, building_data.cost_gold)
 		
-		# Don't increment count yet - wait until actually placed
-		# building_counts[building_data.building_type] += 1
-		
-		# Enter placement mode
-		BuildModeManager.enter_placement_mode(building_data)
-		
-		building_purchased.emit(building_data)
-		print("Purchased: ", building_data.display_name, " - now place it on the map!")
-		return true
+		if success:
+			# Enter placement mode
+			BuildModeManager.enter_placement_mode(building_data)
+			building_purchased.emit(building_data)
+			print("Purchased: ", building_data.display_name, " - now place it on the map!")
+			return true
+		else:
+			print("Failed to deduct resources from storage!")
+			return false
 	return false
 
+# New function to actually deduct from storage buildings
+func deduct_resources(wood_needed: int, stone_needed: int, gold_needed: int) -> bool:
+	var wood_storage = find_wood_storage()
+	var stone_storage = find_stone_storage() 
+	var gold_storage = find_gold_storage()
+	
+	# Check if we can deduct the resources
+	var wood_available = wood_storage.stored_wood if wood_storage else 0
+	var stone_available = stone_storage.stored_stone if stone_storage else 0
+	var gold_available = gold_storage.stored_gold if gold_storage else 0
+	
+	if wood_available < wood_needed or stone_available < stone_needed or gold_available < gold_needed:
+		return false
+	
+	# Actually deduct the resources
+	if wood_needed > 0 and wood_storage:
+		wood_storage.stored_wood -= wood_needed
+		print("Deducted ", wood_needed, " wood. Storage now: ", wood_storage.stored_wood)
+	
+	if stone_needed > 0 and stone_storage:
+		stone_storage.stored_stone -= stone_needed
+		print("Deducted ", stone_needed, " stone. Storage now: ", stone_storage.stored_stone)
+	
+	if gold_needed > 0 and gold_storage:
+		gold_storage.stored_gold -= gold_needed
+		print("Deducted ", gold_needed, " gold. Storage now: ", gold_storage.stored_gold)
+	
+	return true
+
 func get_resources_text() -> String:
-	return "Meals: %d | Wood: %d" % [player_meals, player_wood]
+	return "Gold: %d | Wood: %d | Stone: %d" % [player_gold, player_wood, player_stone]  # Updated to show gold instead of meals
 
 # Debug function to set player level for testing
 func set_player_level(level: int):
@@ -186,3 +243,22 @@ func set_player_level(level: int):
 func confirm_building_placed(building_data: BuildingData):
 	building_counts[building_data.building_type] += 1
 	print("Building placed and counted: ", building_data.display_name, " (Count now: ", building_counts[building_data.building_type], ")")
+
+# Helper function to add resources for testing
+func add_resources(wood: int = 0, stone: int = 0, gold: int = 0):
+	player_wood += wood
+	player_stone += stone  
+	player_gold += gold
+	print("Resources added. Current: Wood=%d, Stone=%d, Gold=%d" % [player_wood, player_stone, player_gold])
+
+func find_wood_storage():
+	var wood_storages = get_tree().get_nodes_in_group("wood_storage")
+	return wood_storages[0] if wood_storages.size() > 0 else null
+
+func find_gold_storage():
+	var gold_storages = get_tree().get_nodes_in_group("gold_storage")
+	return gold_storages[0] if gold_storages.size() > 0 else null
+
+func find_stone_storage():
+	var stone_storages = get_tree().get_nodes_in_group("stone_storage")
+	return stone_storages[0] if stone_storages.size() > 0 else null
