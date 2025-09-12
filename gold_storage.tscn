@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://dia0x6bv5vq2m"]
+
+[ext_resource type="Script" uid="uid://b75528n60o3il" path="res://gold_storage.gd" id="1_y0362"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_s40j7"]
+size = Vector3(2, 0.1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_7gnfy"]
+size = Vector3(2, 1, 2)
+
+[node name="Gold Storage" type="StaticBody3D"]
+script = ExtResource("1_y0362")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0.5)
+mesh = SubResource("BoxMesh_s40j7")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_7gnfy")

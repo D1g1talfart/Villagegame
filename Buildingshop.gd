@@ -4,9 +4,9 @@ extends Node
 signal building_purchased(building_data: BuildingData)
 
 var player_level: int = 1
-var player_wood: int = 50  # Starting with more wood for testing
-var player_stone: int = 10
-var player_gold: int = 1000  # Replaced meals with gold
+var player_wood: int = 0  # Starting with more wood for testing
+var player_stone: int = 0
+var player_gold: int = 0  # Replaced meals with gold
 
 var available_buildings: Array[BuildingData] = []
 var building_counts: Dictionary = {}  # BuildingType -> count
@@ -57,23 +57,22 @@ func setup_building_data():
 		0,                  # stone cost
 		0,                  # gold cost
 		Vector2i(2, 2),     # building_size
-		"",                 # path (not implemented yet)
+		"res://gold_storage.tscn", # path 
 		1                   # max 1
 	))
 	
-	# STONE STORAGE - Available at level 2
 	available_buildings.append(BuildingData.new(
 		BuildingData.BuildingType.STONE_STORAGE, 
 		"Stone Storage", 
 		"Stores stone and building materials",
-		[2],                # Available at level 2
-		10,                 # wood cost
-		0,                  # stone cost
-		200,                # gold cost
-		Vector2i(2, 2),     # building_size
-		"",                 # path
-		1                   # max 1
-	))
+		[2, 3],                    # Available at level 2
+		10,                     # wood cost
+		0,                      # stone cost
+		200,                    # gold cost
+		Vector2i(2, 2),         # building_size
+		"res://stone_storage.tscn",  # <-- ADD THIS PATH
+		2                       # max 2
+))
 	
 	# RABBIT HUTCH - Available at level 3
 	available_buildings.append(BuildingData.new(

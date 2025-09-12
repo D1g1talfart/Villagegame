@@ -1,9 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://dlee3bp7oncck"]
+[gd_scene load_steps=7 format=3 uid="uid://dlee3bp7oncck"]
 
 [ext_resource type="Script" uid="uid://bvwpsjanxvpcs" path="res://wood_node.gd" id="1_jpiax"]
 [ext_resource type="Material" uid="uid://bxs25ddqmxsva" path="res://Materials/house.tres" id="2_7r4ik"]
+[ext_resource type="Material" uid="uid://catbhh5413v54" path="res://Materials/Dirt.tres" id="2_i61tk"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_7r4ik"]
+material = ExtResource("2_i61tk")
 height = 3.98
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_i61tk"]

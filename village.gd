@@ -9,6 +9,9 @@ var villager_scene = preload("res://Villager.tscn")
 var kitchen_scene = preload("res://Kitchen.tscn")
 var heartwood_scene = preload("res://wood_node.tscn")
 var wood_storage_scene = preload("res://Wood_storage.tscn")
+var stone_storage_scene = preload("res://stone_storage.tscn")
+var stone_node_scene = preload("res://stone_node.tscn")
+var gold_storage_scene = preload("res://gold_storage.tscn")
 
 var villager_names: Array[String] = [
 	"Bob", "Alice", "Charlie", "Diana", "Edward", "Fiona", "George", "Hannah",
@@ -178,11 +181,19 @@ func spawn_initial_buildings():
 	house.position = Vector3(30, 0.1, 30)
 	BuildModeManager.register_building(house, Vector2i(30, 15))
 	
+	# First heartwood
 	var heartwood = heartwood_scene.instantiate()
-	heartwood.grid_position = Vector2i(23, 42)  # Set BEFORE adding to scene
+	heartwood.grid_position = Vector2i(23, 39)  # Set BEFORE adding to scene
 	add_child(heartwood)
-	heartwood.position = Vector3(23, 0.1, 42)
-	BuildModeManager.register_building(heartwood, Vector2i(23, 42))
+	heartwood.position = Vector3(23, 0.1, 39)
+	BuildModeManager.register_building(heartwood, Vector2i(23, 39))
+	
+	# Second heartwood
+	var heartwood2 = heartwood_scene.instantiate()
+	heartwood2.grid_position = Vector2i(23, 7)  # Set BEFORE adding to scene
+	add_child(heartwood2)
+	heartwood2.position = Vector3(23, 0.1, 7)
+	BuildModeManager.register_building(heartwood2, Vector2i(23, 7))
 	
 	var wood_storage = wood_storage_scene.instantiate()
 	wood_storage.grid_position = Vector2i(45, 35)
@@ -190,9 +201,18 @@ func spawn_initial_buildings():
 	wood_storage.position = Vector3(45, 0.1, 35)
 	BuildModeManager.register_building(wood_storage, Vector2i(45, 35))
 	
-	print("Initial buildings spawned with correct grid positions")
-	print("Farm grid_position: ", farm.grid_position)
-	print("House grid_position: ", house.grid_position)
+	var stone_quarry = stone_node_scene.instantiate()
+	stone_quarry.grid_position = Vector2i(7, 23)  # Set BEFORE adding to scene
+	add_child(stone_quarry)
+	stone_quarry.position = Vector3(7, 0.1, 23)
+	BuildModeManager.register_building(stone_quarry, Vector2i(7, 23))
+
+	# Second stone quarry  
+	var stone_quarry2 = stone_node_scene.instantiate()
+	stone_quarry2.grid_position = Vector2i(39, 23)  # Set BEFORE adding to scene
+	add_child(stone_quarry2)
+	stone_quarry2.position = Vector3(39, 0.1, 23)
+	BuildModeManager.register_building(stone_quarry2, Vector2i(39, 23))
 
 func setup_jobs_and_villagers():
 	await get_tree().process_frame

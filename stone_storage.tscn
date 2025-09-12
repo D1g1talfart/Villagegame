@@ -1,0 +1,31 @@
+[gd_scene load_steps=6 format=3 uid="uid://cft6he0kfxdx1"]
+
+[ext_resource type="Script" uid="uid://cd3lhqueyvyu5" path="res://stone_storage.gd" id="1_doehu"]
+[ext_resource type="Material" uid="uid://cx6sk81q7pgvn" path="res://Materials/Stone.tres" id="2_1rabi"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_1rabi"]
+material = ExtResource("2_1rabi")
+size = Vector3(2, 0.1, 2)
+subdivide_depth = 2
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bavts"]
+size = Vector3(2, 0.1, 2)
+
+[sub_resource type="TextMesh" id="TextMesh_1rabi"]
+text = "Stone Storage"
+font_size = 23
+
+[node name="Stone_Storage" type="StaticBody3D"]
+script = ExtResource("1_doehu")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_1rabi")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_bavts")
+
+[node name="Decorations" type="Node3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Decorations"]
+transform = Transform3D(1, 0, 0, 0, -0.000610873, 1, 0, -1, -0.000610873, 0, 0.0357207, 0)
+mesh = SubResource("TextMesh_1rabi")

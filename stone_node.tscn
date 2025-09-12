@@ -1,0 +1,41 @@
+[gd_scene load_steps=6 format=3 uid="uid://dro87qil624b6"]
+
+[ext_resource type="Script" uid="uid://d3cac0fid6ls2" path="res://stone_node.gd" id="1_knxq3"]
+[ext_resource type="Material" uid="uid://cx6sk81q7pgvn" path="res://Materials/Stone.tres" id="2_lvdcr"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_lvdcr"]
+material = ExtResource("2_lvdcr")
+size = Vector3(3, 0.1, 3)
+
+[sub_resource type="SphereMesh" id="SphereMesh_aavoq"]
+material = ExtResource("2_lvdcr")
+radial_segments = 4
+rings = 1
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_aavoq"]
+size = Vector3(3, 0.1, 3)
+
+[node name="Stone_Node" type="StaticBody3D"]
+script = ExtResource("1_knxq3")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1)
+mesh = SubResource("BoxMesh_lvdcr")
+
+[node name="Stone" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 0.815673, 0.578513, 0, -0.578513, 0.815673, -0.766929, 0, 0.624538)
+mesh = SubResource("SphereMesh_aavoq")
+skeleton = NodePath("../..")
+
+[node name="Stone2" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(-0.339247, 0.767302, 0.544205, -0.940697, -0.276715, -0.196259, 0, -0.578513, 0.815673, -0.976579, 0.0639496, -1.00795)
+mesh = SubResource("SphereMesh_aavoq")
+skeleton = NodePath("../..")
+
+[node name="Stone3" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(0.218773, -0.564499, 0.795914, 0.9008, 0.43039, 0.0576486, -0.375096, 0.704348, 0.602658, -0.870185, 0, -0.208529)
+mesh = SubResource("SphereMesh_aavoq")
+skeleton = NodePath("../..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_aavoq")

@@ -1,23 +1,23 @@
-# WoodStorage.gd - 2x2 wood storage building
+# stone_storage.gd - 2x2 stone storage building
 extends BuildableBuilding
 
-@export var stored_wood: int = 5
-@export var max_wood: int = 10
+@export var stored_stone: int = 0
+@export var max_stone: int = 10
 @export var building_level: int = 1
 
 var work_positions: Array[Vector3] = []
 
 func _ready():
-	building_name = "Wood Storage"
+	building_name = "Stone Storage"
 	building_size = Vector2i(2, 2)
 	super._ready()
 	
-	add_to_group("wood_storage")  # Add this line
+	add_to_group("stone_storage")
 	
 	setup_work_positions()
 	setup_navigation_obstacle()
 	
-	print("Wood Storage ready - Capacity: ", max_wood, " wood")
+	print("Stone Storage ready - Capacity: ", max_stone, " stone")
 
 func setup_navigation_obstacle():
 	var nav_obstacle = NavigationObstacle3D.new()
@@ -27,7 +27,7 @@ func setup_navigation_obstacle():
 	nav_obstacle.radius = 1.5  # For 2x2 building
 	nav_obstacle.height = 1.0
 	nav_obstacle.position = Vector3(1, 0, 1)  # Center of 2x2
-	print("Wood Storage navigation obstacle created")
+	print("Stone Storage navigation obstacle created")
 
 func setup_work_positions():
 	var obstacle_center = Vector3(1, 0, 1)  # Center of 2x2
@@ -46,35 +46,35 @@ func get_work_position() -> Vector3:
 func get_actual_work_spot() -> Vector3:
 	return global_position + Vector3(1, 0, 1)  # Center of 2x2
 
-func add_wood(amount: int) -> bool:
-	if stored_wood + amount <= max_wood:
-		stored_wood += amount
-		print("Wood Storage: Added ", amount, " wood. Total: ", stored_wood, "/", max_wood)
+func add_stone(amount: int) -> bool:
+	if stored_stone + amount <= max_stone:
+		stored_stone += amount
+		print("Stone Storage: Added ", amount, " stone. Total: ", stored_stone, "/", max_stone)
 		return true
 	else:
-		print("Wood Storage: Cannot add wood - storage full!")
+		print("Stone Storage: Cannot add stone - storage full!")
 		return false
 
-func can_accept_wood(amount: int) -> bool:
-	return stored_wood + amount <= max_wood
+func can_accept_stone(amount: int) -> bool:
+	return stored_stone + amount <= max_stone
 
-func get_available_wood_space() -> int:
-	return max_wood - stored_wood
+func get_available_stone_space() -> int:
+	return max_stone - stored_stone
 
-func is_wood_storage_full() -> bool:
-	return stored_wood >= max_wood
+func is_stone_storage_full() -> bool:
+	return stored_stone >= max_stone
 
-func is_wood_storage() -> bool:
+func is_stone_storage() -> bool:
 	return true
 
 func get_storage_status() -> String:
-	return "Wood: %d/%d" % [stored_wood, max_wood]
+	return "Stone: %d/%d" % [stored_stone, max_stone]
 
-func remove_wood(amount: int) -> bool:
-	if stored_wood >= amount:
-		stored_wood -= amount
-		print("Wood Storage: Removed ", amount, " wood. Remaining: ", stored_wood, "/", max_wood)
+func remove_stone(amount: int) -> bool:
+	if stored_stone >= amount:
+		stored_stone -= amount
+		print("Stone Storage: Removed ", amount, " stone. Remaining: ", stored_stone, "/", max_stone)
 		return true
 	else:
-		print("Wood Storage: Not enough wood to remove!")
+		print("Stone Storage: Not enough stone to remove!")
 		return false

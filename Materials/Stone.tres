@@ -1,0 +1,17 @@
+[gd_resource type="ORMMaterial3D" load_steps=4 format=3 uid="uid://cx6sk81q7pgvn"]
+
+[sub_resource type="Gradient" id="Gradient_fim3j"]
+colors = PackedColorArray(0.24, 0.24, 0.24, 1, 0.5, 0.5, 0.5, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_loqpa"]
+frequency = 0.0058
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_occha"]
+width = 1024
+height = 1024
+color_ramp = SubResource("Gradient_fim3j")
+noise = SubResource("FastNoiseLite_loqpa")
+
+[resource]
+albedo_texture = SubResource("NoiseTexture2D_occha")

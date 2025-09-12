@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://dpwrcrhjqai76"]
+[gd_scene load_steps=6 format=3 uid="uid://dpwrcrhjqai76"]
 
 [ext_resource type="Script" uid="uid://ctjrbfuxqm5tl" path="res://wood_storage.gd" id="1_r3d7l"]
 [ext_resource type="Material" uid="uid://catbhh5413v54" path="res://Materials/Dirt.tres" id="2_424ba"]
@@ -6,6 +6,10 @@
 [sub_resource type="BoxMesh" id="BoxMesh_8psv1"]
 material = ExtResource("2_424ba")
 size = Vector3(2, 1, 2)
+
+[sub_resource type="TextMesh" id="TextMesh_r3d7l"]
+text = "Wood Storage"
+font_size = 31
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_d6080"]
 size = Vector3(2, 1, 2)
@@ -16,6 +20,10 @@ script = ExtResource("1_r3d7l")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0.5)
 mesh = SubResource("BoxMesh_8psv1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(0.673232, -0.73943, -0.00156156, 0, -0.00211183, 0.999998, -0.739431, -0.67323, -0.00142175, 0, 0.483219, 0.00497794)
+mesh = SubResource("TextMesh_r3d7l")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("BoxShape3D_d6080")

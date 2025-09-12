@@ -11,13 +11,7 @@ enum BuildingType {
 	WAREHOUSE,
 	ORNAMENT_WORKSHOP,
 	PLANK_STORAGE,
-	PLANK_WORKSHOP,
-	# Legacy types (can remove if not needed)
-	BAKERY, 
-	LUMBER_MILL, 
-	WORKSHOP, 
-	MINE, 
-	TAVERN 
+	PLANK_WORKSHOP
 }
 
 var building_type: BuildingType
