@@ -10,6 +10,12 @@ size = Vector3(2, 1, 2)
 
 [node name="Gold Storage" type="StaticBody3D"]
 script = ExtResource("1_y0362")
+stored_gold = null
+max_gold = null
+building_level = null
+building_name = null
+building_size = null
+is_permanent = null
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0.5)

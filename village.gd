@@ -315,7 +315,12 @@ func is_any_ui_open() -> bool:
 	if mobile_ui and mobile_ui.building_shop_ui and mobile_ui.building_shop_ui.visible:
 		return true
 	
-	# Check if job assignment UI is open
+	# Check if building UI is open
+	var building_ui = get_tree().root.get_node_or_null("BuildingUI")
+	if building_ui:
+		return true
+	
+	# Check if job assignment UI is open (old system)
 	var job_ui = get_tree().root.get_node_or_null("SimpleJobUI")
 	if job_ui:
 		return true
@@ -365,24 +370,46 @@ func handle_job_assignment_click():
 		var clicked_object = result.collider
 		print("Clicked object: ", clicked_object.name)
 		
+		var building: BuildableBuilding = null
+		
 		# Check if it's a regular BuildableBuilding
 		if clicked_object is BuildableBuilding:
-			var building = clicked_object as BuildableBuilding
-			if building.has_meta("job"):
-				var job = building.get_meta("job") as Job
-				JobManager.show_job_assignment_ui(job)
-				print("Clicked on job site: ", building.building_name)
+			building = clicked_object as BuildableBuilding
 		
 		# Check if it's the kitchen collision body
 		elif clicked_object.name == "KitchenCollision":
 			var kitchen = clicked_object.get_parent()
-			if kitchen.has_method("is_kitchen") and kitchen.has_meta("job"):
-				var job = kitchen.get_meta("job") as Job
-				JobManager.show_job_assignment_ui(job)
-				print("Clicked on kitchen")
+			if kitchen.has_method("is_kitchen"):
+				building = kitchen
 		
+		# Show building UI if we found a building
+		if building:
+			show_building_ui(building)
+			print("Showing building UI for: ", building.building_name)
 		else:
 			print("Clicked object is not a building: ", clicked_object)
+
+# Add this new function to village.gd
+func show_building_ui(building: BuildableBuilding):
+	# Remove any existing building UIs
+	var existing_uis = get_tree().get_nodes_in_group("ui")
+	for ui in existing_uis:
+		if ui.name == "BuildingUI":
+			ui.queue_free()
+	
+	# Also remove old job UI
+	var existing_job_ui = get_tree().root.get_node_or_null("SimpleJobUI")
+	if existing_job_ui:
+		existing_job_ui.queue_free()
+	
+	# Wait a frame for cleanup
+	await get_tree().process_frame
+	
+	# Create new building UI
+	var building_ui = BuildingUI.new()
+	building_ui.add_to_group("ui")
+	get_tree().root.add_child(building_ui)
+	building_ui.show_building_ui(building)
 
 # village.gd - Replace setup_navigation_region() with this improved version
 func setup_navigation_region():

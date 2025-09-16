@@ -2,7 +2,7 @@
 extends RefCounted
 class_name Job
 
-enum JobType { IDLE, FARM_WORKER, KITCHEN_WORKER, WOOD_GATHERER, STONE_GATHERER }
+enum JobType { IDLE, FARM_WORKER, KITCHEN_WORKER, WOOD_GATHERER, STONE_GATHERER, BUILDER }
 
 var job_type: JobType
 var workplace: Node3D

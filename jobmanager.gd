@@ -114,7 +114,7 @@ func show_job_assignment_ui(job: Job):
 	test_control.position = Vector2.ZERO
 	
 	var test_panel = Panel.new()
-	test_panel.size = Vector2(400, 350)  # Make it taller for more info
+	test_panel.size = Vector2(400, 350)
 	test_panel.position = Vector2(200, 200)
 	
 	var style = StyleBoxFlat.new()
@@ -128,6 +128,12 @@ func show_job_assignment_ui(job: Job):
 			job_name = "Farm Worker"
 		Job.JobType.KITCHEN_WORKER:
 			job_name = "Kitchen Worker"
+		Job.JobType.WOOD_GATHERER:
+			job_name = "Wood Gatherer"
+		Job.JobType.STONE_GATHERER:
+			job_name = "Stone Gatherer"
+		Job.JobType.BUILDER:
+			job_name = "Builder (Upgrading " + job.workplace.building_name + ")"
 		_:
 			job_name = "Unknown Job"
 	
@@ -157,7 +163,7 @@ func show_job_assignment_ui(job: Job):
 	close_btn.size = Vector2(100, 30)
 	close_btn.pressed.connect(func(): test_control.queue_free())
 	
-	# Add available villagers (only those without jobs OR the current worker)
+	# Add available villagers
 	var y_pos = 100
 	var available_villagers = get_available_villagers_for_job(job)
 	
@@ -263,3 +269,17 @@ func _on_unassign_pressed(job: Job):
 func _on_close_pressed():
 	print("Closing UI")
 	job_assignment_ui.hide()
+	
+# Helper function to get jobs by type
+func get_jobs_by_type(job_type: Job.JobType) -> Array[Job]:
+	var jobs_of_type: Array[Job] = []
+	for job in all_jobs:
+		if job.job_type == job_type:
+			jobs_of_type.append(job)
+	return jobs_of_type
+
+# Helper function to unregister a job
+func unregister_job(job: Job):
+	if job in all_jobs:
+		all_jobs.erase(job)
+		print("Unregistered job: ", job.job_type)

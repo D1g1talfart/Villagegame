@@ -1,6 +1,6 @@
 [gd_scene load_steps=15 format=3 uid="uid://bmct36s5jv107"]
 
-[ext_resource type="Script" uid="uid://daqo56o82fbae" path="res://kitchen.gd" id="1_vloss"]
+[ext_resource type="Script" uid="uid://daqo56o82fbae" path="res://Kitchen.gd" id="1_vloss"]
 [ext_resource type="Material" uid="uid://c624t7d8ewtut" path="res://Materials/Dirtreal.tres" id="2_eqcb7"]
 [ext_resource type="Material" uid="uid://n6aje1yjxksv" path="res://Materials/Metal.tres" id="2_ihhv2"]
 [ext_resource type="Material" uid="uid://catbhh5413v54" path="res://Materials/Dirt.tres" id="3_pvymr"]

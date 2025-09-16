@@ -10,7 +10,13 @@ enum WorkerState {
 	GOING_TO_SOURCE,     # Going to resource source (farm/heartwood/etc)
 	GATHERING,           # Harvesting/gathering at source
 	GOING_TO_STORAGE,    # Going to storage location
-	DELIVERING           # Delivering to storage
+	DELIVERING,          # Delivering to storage
+	# New states for builder
+	GOING_TO_WOOD_STORAGE,   # Going to wood storage to pick up wood
+	GOING_TO_STONE_STORAGE,  # Going to stone storage to pick up stone
+	PICKING_UP_RESOURCES,    # Picking up resources from storage
+	GOING_TO_BUILD_SITE,     # Going to building being upgraded
+	DELIVERING_TO_BUILD      # Delivering resources to building
 }
 
 @export var villager_name: String = "Villager"
@@ -24,6 +30,7 @@ var home_house: BuildableBuilding
 var work_timer: float = 0.0
 var carrying_crops: int = 0
 var carrying_wood: int = 0
+var carrying_stone: int = 0
 var pending_unassignment: bool = false
 var walking_toward: String = ""
 
@@ -87,13 +94,14 @@ func _physics_process(delta):
 		State.WORKING:
 			handle_working_state(delta)
 
+# Replace the entire handle_idle_state() function in villager.gd with this:
 func handle_idle_state():
-	if pending_unassignment and carrying_crops == 0 and carrying_wood == 0:
+	if pending_unassignment and carrying_crops == 0 and carrying_wood == 0 and carrying_stone == 0:
 		complete_pending_unassignment()
 		go_to_house_idle()
 		return
 	
-	if pending_unassignment and (carrying_crops > 0 or carrying_wood > 0):
+	if pending_unassignment and (carrying_crops > 0 or carrying_wood > 0 or carrying_stone > 0):
 		# Handle pending deliveries for different resource types
 		if carrying_crops > 0:
 			var kitchen = get_kitchen()
@@ -128,9 +136,26 @@ func handle_idle_state():
 					worker_state = WorkerState.GOING_TO_STORAGE
 					handle_resource_worker_cycle()
 					return
+		
+		if carrying_stone > 0:
+			var stone_storage = get_stone_storage()
+			if stone_storage and stone_storage.has_method("can_accept_stone"):
+				if not stone_storage.can_accept_stone(carrying_stone):
+					print(villager_name, " stone storage became full during pending unassignment - dropping stone")
+					carrying_stone = 0
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color.ORANGE
+					complete_pending_unassignment()
+					go_to_house_idle()
+					return
+				else:
+					worker_state = WorkerState.GOING_TO_STORAGE
+					handle_resource_worker_cycle()
+					return
 	
 	if assigned_job and assigned_job.should_work():
-		if assigned_job.job_type == Job.JobType.FARM_WORKER or assigned_job.job_type == Job.JobType.WOOD_GATHERER:
+		if assigned_job.job_type == Job.JobType.FARM_WORKER or assigned_job.job_type == Job.JobType.WOOD_GATHERER or assigned_job.job_type == Job.JobType.STONE_GATHERER:
 			# Check if we're carrying resources but storage is full
 			if assigned_job.job_type == Job.JobType.FARM_WORKER and carrying_crops > 0 and worker_state == WorkerState.DELIVERING:
 				var kitchen = get_kitchen()
@@ -146,8 +171,17 @@ func handle_idle_state():
 						deliver_wood_to_storage()
 					else:
 						return  # Wait for space
+			elif assigned_job.job_type == Job.JobType.STONE_GATHERER and carrying_stone > 0 and worker_state == WorkerState.DELIVERING:
+				var stone_storage = get_stone_storage()
+				if stone_storage and stone_storage.has_method("can_accept_stone"):
+					if stone_storage.can_accept_stone(carrying_stone):
+						deliver_stone_to_storage()
+					else:
+						return  # Wait for space
 			else:
 				handle_resource_worker_cycle()
+		elif assigned_job.job_type == Job.JobType.BUILDER:
+			handle_builder_logic()
 		elif assigned_job.job_type == Job.JobType.KITCHEN_WORKER:
 			handle_kitchen_worker_cycle()
 	else:
@@ -194,6 +228,8 @@ func handle_resource_worker_cycle():
 			handle_farm_worker_logic()
 		Job.JobType.WOOD_GATHERER:
 			handle_wood_gatherer_logic()
+		Job.JobType.STONE_GATHERER:
+			handle_stone_gatherer_logic()
 
 func handle_farm_worker_logic():
 	match worker_state:
@@ -314,8 +350,12 @@ func check_arrival_action():
 				handle_farm_worker_arrival()
 			Job.JobType.WOOD_GATHERER:
 				handle_wood_gatherer_arrival()
+			Job.JobType.STONE_GATHERER:
+				handle_stone_gatherer_arrival()
 			Job.JobType.KITCHEN_WORKER:
 				handle_kitchen_worker_arrival()
+			Job.JobType.BUILDER:
+				handle_builder_arrival()
 
 func handle_farm_worker_arrival():
 	var farm = assigned_job.workplace
@@ -400,8 +440,12 @@ func perform_job_action():
 			perform_farm_work()
 		Job.JobType.WOOD_GATHERER:
 			perform_wood_gathering()
+		Job.JobType.STONE_GATHERER:
+			perform_stone_gathering()
 		Job.JobType.KITCHEN_WORKER:
 			perform_kitchen_work()
+		Job.JobType.BUILDER:
+			perform_builder_work()
 
 func perform_farm_work():
 	var farm = assigned_job.workplace
@@ -539,6 +583,292 @@ func deliver_wood_to_storage():
 			global_position = storage_exit
 			global_position.y = 0.1
 
+# Add these functions to villager.gd
+
+func handle_builder_logic():
+	var building_being_upgraded = assigned_job.workplace
+	
+	if not building_being_upgraded or not building_being_upgraded.is_upgrading:
+		print(villager_name, " - building upgrade completed or cancelled")
+		return
+	
+	# Determine what resource we need to fetch
+	var need_wood = building_being_upgraded.upgrade_resources_delivered.get("wood", 0) < building_being_upgraded.upgrade_resources_needed.get("wood", 0)
+	var need_stone = building_being_upgraded.upgrade_resources_delivered.get("stone", 0) < building_being_upgraded.upgrade_resources_needed.get("stone", 0)
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			# Decide what resource to fetch first (prioritize wood)
+			if need_wood and carrying_wood == 0 and carrying_stone == 0:
+				var wood_storage = get_wood_storage()
+				if wood_storage and wood_storage.stored_wood > 0:
+					worker_state = WorkerState.GOING_TO_WOOD_STORAGE
+					walk_to_position(wood_storage.get_work_position(), "wood_storage")
+					return
+			
+			if need_stone and carrying_wood == 0 and carrying_stone == 0:
+				var stone_storage = get_stone_storage()
+				if stone_storage and stone_storage.stored_stone > 0:
+					worker_state = WorkerState.GOING_TO_STONE_STORAGE
+					walk_to_position(stone_storage.get_work_position(), "stone_storage")
+					return
+			
+			# If we have resources, deliver them
+			if carrying_wood > 0 or carrying_stone > 0:
+				worker_state = WorkerState.GOING_TO_BUILD_SITE
+				walk_to_position(building_being_upgraded.get_work_position(), "build_site")
+		
+		WorkerState.GOING_TO_WOOD_STORAGE:
+			# This is handled in check_arrival_action
+			pass
+		
+		WorkerState.GOING_TO_STONE_STORAGE:
+			# This is handled in check_arrival_action
+			pass
+		
+		WorkerState.GOING_TO_BUILD_SITE:
+			# This is handled in check_arrival_action
+			pass
+
+func handle_builder_arrival():
+	var building_being_upgraded = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.GOING_TO_WOOD_STORAGE:
+			var wood_storage = get_wood_storage()
+			if wood_storage and wood_storage.get_work_position().distance_to(global_position) < 2.0:
+				print("At wood storage, picking up wood")
+				global_position = wood_storage.get_actual_work_spot()
+				worker_state = WorkerState.PICKING_UP_RESOURCES
+				start_working()  # Work animation for picking up
+		
+		WorkerState.GOING_TO_STONE_STORAGE:
+			var stone_storage = get_stone_storage()
+			if stone_storage and stone_storage.get_work_position().distance_to(global_position) < 2.0:
+				print("At stone storage, picking up stone")
+				global_position = stone_storage.get_actual_work_spot()
+				worker_state = WorkerState.PICKING_UP_RESOURCES
+				start_working()  # Work animation for picking up
+		
+		WorkerState.GOING_TO_BUILD_SITE:
+			if building_being_upgraded and building_being_upgraded.get_work_position().distance_to(global_position) < 2.0:
+				print("At build site, delivering resources")
+				global_position = building_being_upgraded.get_actual_work_spot()
+				worker_state = WorkerState.DELIVERING_TO_BUILD
+				start_working()  # Work animation for delivering
+
+func perform_builder_work():
+	var building_being_upgraded = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.PICKING_UP_RESOURCES:
+			# Pick up resources from storage
+			if carrying_wood == 0 and carrying_stone == 0:
+				var wood_storage = get_wood_storage()
+				var stone_storage = get_stone_storage()
+				
+				# Check if we're at wood storage and need wood
+				if wood_storage and global_position.distance_to(wood_storage.get_actual_work_spot()) < 1.0:
+					var need_wood = building_being_upgraded.upgrade_resources_delivered.get("wood", 0) < building_being_upgraded.upgrade_resources_needed.get("wood", 0)
+					if need_wood and wood_storage.stored_wood > 0:
+						wood_storage.remove_wood(1)
+						carrying_wood = 1
+						# Change color to indicate carrying wood
+						var material = mesh_instance.material_override as StandardMaterial3D
+						if material:
+							material.albedo_color = Color(0.6, 0.4, 0.2)  # Brown for wood
+						print(villager_name, " picked up 1 wood")
+				
+				# Check if we're at stone storage and need stone
+				elif stone_storage and global_position.distance_to(stone_storage.get_actual_work_spot()) < 1.0:
+					var need_stone = building_being_upgraded.upgrade_resources_delivered.get("stone", 0) < building_being_upgraded.upgrade_resources_needed.get("stone", 0)
+					if need_stone and stone_storage.stored_stone > 0:
+						stone_storage.remove_stone(1)
+						carrying_stone = 1
+						# Change color to indicate carrying stone
+						var material = mesh_instance.material_override as StandardMaterial3D
+						if material:
+							material.albedo_color = Color.GRAY
+						print(villager_name, " picked up 1 stone")
+			
+			# Go to build site
+			worker_state = WorkerState.GOING_TO_BUILD_SITE
+			var storage_exit = Vector3.ZERO
+			if carrying_wood > 0:
+				storage_exit = get_wood_storage().get_work_position()
+			elif carrying_stone > 0:
+				storage_exit = get_stone_storage().get_work_position()
+			
+			if storage_exit != Vector3.ZERO:
+				global_position = storage_exit
+				global_position.y = 0.1
+			
+			walk_to_position(building_being_upgraded.get_work_position(), "build_site")
+		
+		WorkerState.DELIVERING_TO_BUILD:
+			# Deliver resources to building
+			if carrying_wood > 0:
+				building_being_upgraded.deliver_upgrade_resource("wood", 1)
+				carrying_wood = 0
+				print(villager_name, " delivered 1 wood to upgrade")
+			elif carrying_stone > 0:
+				building_being_upgraded.deliver_upgrade_resource("stone", 1)
+				carrying_stone = 0
+				print(villager_name, " delivered 1 stone to upgrade")
+			
+			# Reset appearance
+			reset_appearance()
+			
+			# Go back to get more resources or finish
+			worker_state = WorkerState.GOING_TO_SOURCE
+			
+			# Teleport back to build site exit
+			var build_exit = building_being_upgraded.get_work_position()
+			global_position = build_exit
+			global_position.y = 0.1
+			
+
+# Add these functions to villager.gd
+
+func handle_stone_gatherer_cycle():
+	handle_stone_gatherer_logic()
+
+func handle_stone_gatherer_logic():
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if carrying_stone == 0:
+				var stone_quarry = get_stone_quarry()
+				if stone_quarry and stone_quarry.has_method("get_work_position"):
+					var quarry_entry = stone_quarry.get_work_position()
+					if global_position.distance_to(quarry_entry) > 1.5:
+						print("Walking to stone quarry entry point: ", quarry_entry)
+						walk_to_position(quarry_entry, "stone_quarry")
+			else:
+				worker_state = WorkerState.GOING_TO_STORAGE
+				handle_stone_gatherer_logic()
+		
+		WorkerState.GOING_TO_STORAGE:
+			if carrying_stone > 0:
+				var stone_storage = get_stone_storage()
+				if stone_storage and stone_storage.has_method("get_work_position"):
+					if stone_storage.has_method("can_accept_stone") and not stone_storage.can_accept_stone(carrying_stone):
+						print(villager_name, " waiting - stone storage full! ", stone_storage.get_storage_status() if stone_storage.has_method("get_storage_status") else "")
+						return
+					
+					var storage_entry = stone_storage.get_work_position()
+					if global_position.distance_to(storage_entry) > 1.5:
+						print("Walking to stone storage entry point: ", storage_entry)
+						walk_to_position(storage_entry, "stone_storage")
+			else:
+				worker_state = WorkerState.GOING_TO_SOURCE
+				handle_stone_gatherer_logic()
+
+func handle_stone_gatherer_arrival():
+	var stone_quarry = get_stone_quarry()
+	var stone_storage = get_stone_storage()
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if stone_quarry and stone_quarry.has_method("get_work_position"):
+				var quarry_entry = stone_quarry.get_work_position()
+				if global_position.distance_to(quarry_entry) < 2.0:
+					print("At stone quarry entry, teleporting to work spot")
+					var work_spot = stone_quarry.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.GATHERING
+					start_working()
+		
+		WorkerState.GOING_TO_STORAGE:
+			if stone_storage and stone_storage.has_method("get_work_position"):
+				var storage_entry = stone_storage.get_work_position()
+				if global_position.distance_to(storage_entry) < 2.0:
+					print("At stone storage entry, teleporting to work spot")
+					var work_spot = stone_storage.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.DELIVERING
+					deliver_stone_to_storage()
+
+func perform_stone_gathering():
+	var stone_quarry = assigned_job.workplace
+	if stone_quarry and stone_quarry.has_method("gather_stone"):
+		if stone_quarry.gather_stone():
+			carrying_stone = 1
+			worker_state = WorkerState.GOING_TO_STORAGE
+			
+			# Change color to indicate carrying stone (gray)
+			var material = mesh_instance.material_override as StandardMaterial3D
+			if material:
+				material.albedo_color = Color.GRAY
+			
+			print(villager_name, " finished gathering stone")
+			
+			# Teleport back to quarry exit
+			var quarry_exit = stone_quarry.get_work_position()
+			print("Teleporting from work spot to stone quarry exit: ", quarry_exit)
+			global_position = quarry_exit
+			global_position.y = 0.1
+			
+			# Now pathfind to stone storage
+			var stone_storage = get_stone_storage()
+			if stone_storage:
+				walk_to_position(stone_storage.get_work_position(), "stone_storage")
+
+func deliver_stone_to_storage():
+	var stone_storage = get_stone_storage()
+	if stone_storage and stone_storage.has_method("add_stone") and carrying_stone > 0:
+		# Check if storage can accept stone
+		if stone_storage.has_method("can_accept_stone") and not stone_storage.can_accept_stone(carrying_stone):
+			print(villager_name, " cannot deliver - stone storage became full! Waiting...")
+			var storage_exit = stone_storage.get_work_position()
+			global_position = storage_exit
+			global_position.y = 0.1
+			return
+		
+		if stone_storage.add_stone(carrying_stone):
+			print(villager_name, " delivered ", carrying_stone, " stone")
+			carrying_stone = 0
+			
+			# Reset color back to normal
+			var material = mesh_instance.material_override as StandardMaterial3D
+			if material:
+				material.albedo_color = Color.ORANGE
+			
+			# Teleport back to storage exit
+			var storage_exit = stone_storage.get_work_position()
+			print("Teleporting from storage work spot to storage exit: ", storage_exit)
+			global_position = storage_exit
+			global_position.y = 0.1
+			
+			if pending_unassignment:
+				complete_pending_unassignment()
+				if home_house:
+					walk_to_position(home_house.get_entry_position(), "house")
+				return
+			
+			worker_state = WorkerState.GOING_TO_SOURCE
+			var stone_quarry = assigned_job.workplace
+			if stone_quarry:
+				walk_to_position(stone_quarry.get_work_position(), "stone_quarry")
+		else:
+			print(villager_name, " delivery failed - stone storage full! Waiting...")
+			var storage_exit = stone_storage.get_work_position()
+			global_position = storage_exit
+			global_position.y = 0.1
+
+func get_stone_quarry() -> Node3D:
+	var village = get_parent()
+	for child in village.get_children():
+		if child.has_method("is_stone_quarry"):
+			return child
+	return null
+
+func get_stone_storage() -> Node3D:
+	var village = get_parent()
+	for child in village.get_children():
+		if child.has_method("is_stone_storage"):
+			return child
+	return null
+
 func reset_appearance():
 	var material = mesh_instance.material_override as StandardMaterial3D
 	if material:
@@ -584,10 +914,22 @@ func assign_job(job: Job):
 				worker_state = WorkerState.GOING_TO_SOURCE
 				carrying_crops = 0
 				carrying_wood = 0
+				carrying_stone = 0
 			Job.JobType.WOOD_GATHERER:
 				worker_state = WorkerState.GOING_TO_SOURCE
 				carrying_crops = 0
 				carrying_wood = 0
+				carrying_stone = 0
+			Job.JobType.STONE_GATHERER:
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+				carrying_stone = 0
+			Job.JobType.BUILDER:
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+				carrying_stone = 0
 		
 		# Reset visual appearance
 		var material = mesh_instance.material_override as StandardMaterial3D
@@ -596,7 +938,7 @@ func assign_job(job: Job):
 
 func unassign_job():
 	if assigned_job:
-		var has_resources = carrying_crops > 0 or carrying_wood > 0
+		var has_resources = carrying_crops > 0 or carrying_wood > 0 or carrying_stone > 0
 		
 		if has_resources:
 			# Check if we can deliver resources
@@ -612,6 +954,11 @@ func unassign_job():
 				if wood_storage and wood_storage.has_method("can_accept_wood") and wood_storage.can_accept_wood(carrying_wood):
 					can_deliver = true
 			
+			if carrying_stone > 0:
+				var stone_storage = get_stone_storage()
+				if stone_storage and stone_storage.has_method("can_accept_stone") and stone_storage.can_accept_stone(carrying_stone):
+					can_deliver = true
+			
 			if can_deliver:
 				print("Will finish delivery before going home")
 				pending_unassignment = true
@@ -621,6 +968,7 @@ func unassign_job():
 				print(villager_name, " unassigned with resources but storage full - dropping resources")
 				carrying_crops = 0
 				carrying_wood = 0
+				carrying_stone = 0
 				
 				# Reset appearance
 				var material = mesh_instance.material_override as StandardMaterial3D
@@ -635,6 +983,7 @@ func unassign_job():
 		worker_state = WorkerState.GOING_TO_SOURCE
 		carrying_crops = 0
 		carrying_wood = 0
+		carrying_stone = 0
 		
 		if current_state == State.WALKING:
 			grid_movement.stop_movement()
