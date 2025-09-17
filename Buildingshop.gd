@@ -98,7 +98,7 @@ func setup_building_data():
 		5,                  # stone cost
 		500,                # gold cost
 		Vector2i(2, 2),     # building_size
-		"",                 # path
+		"res://rabbit_hutch.tscn", # path
 		1                   # max 1
 	))
 	
@@ -112,7 +112,7 @@ func setup_building_data():
 		15,                 # stone cost
 		500,                # gold cost
 		Vector2i(3, 2),     # building_size
-		"",                 # path
+		"res://warehouse.tscn",                # path
 		1                   # max 1
 	))
 	
@@ -126,7 +126,7 @@ func setup_building_data():
 		20,                 # stone cost
 		800,                # gold cost
 		Vector2i(2, 2),     # building_size
-		"",                 # path
+		"res://ornament_workshop.tscn",                 # path
 		1                   # max 1
 	))
 	
@@ -154,7 +154,7 @@ func setup_building_data():
 		30,                 # stone cost
 		1500,               # gold cost
 		Vector2i(2, 3),     # building_size
-		"",                 # path
+		"res://plank_storage.tscn",                 # path
 		1                   # max 1
 	))
 	
@@ -168,7 +168,7 @@ func setup_building_data():
 		50,                 # stone cost
 		1500,               # gold cost
 		Vector2i(2, 2),     # building_size
-		"",                 # path
+		"res://plank_workshop.tscn",                 # path
 		1                   # max 1
 	))
 	

@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://ekgfqtrfmd67"]
+
+[ext_resource type="Script" uid="uid://1c1fjce6d05o" path="res://rabbit_hutch.gd" id="1_36bok"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_q3bbq"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pvfvj"]
+size = Vector3(2, 1, 2)
+
+[node name="Rabbit Hutch" type="StaticBody3D"]
+script = ExtResource("1_36bok")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_q3bbq")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_pvfvj")

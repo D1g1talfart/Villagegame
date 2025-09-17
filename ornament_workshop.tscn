@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://g1yrj505oate"]
+
+[ext_resource type="Script" uid="uid://cx65e4hiss3ol" path="res://ornament_workshop.gd" id="1_8xc7s"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_qfu8i"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_oc33p"]
+size = Vector3(2, 1, 2)
+
+[node name="Ornament Workshop" type="StaticBody3D"]
+script = ExtResource("1_8xc7s")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_qfu8i")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_oc33p")

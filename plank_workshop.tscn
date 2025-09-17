@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://2wnied2og6e2"]
+
+[ext_resource type="Script" uid="uid://bjl5o1lef12dn" path="res://plank_workshop.gd" id="1_ssmiy"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_esdlw"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_eyiut"]
+size = Vector3(2, 1, 2)
+
+[node name="Plank Workshop" type="StaticBody3D"]
+script = ExtResource("1_ssmiy")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_esdlw")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_eyiut")

@@ -25,7 +25,7 @@ enum WorkerState {
 @export var villager_name: String = "Villager"
 @export var movement_speed: float = 3.0
 @export var work_duration: float = 2.0
-@export var hunger_interval: float = 180.0  # 3 minutes in seconds
+@export var hunger_interval: float = 60.0  # 3 minutes in seconds
 @export var eating_duration: float = 2.0    # How long it takes to eat
 
 var current_state: State = State.IDLE
@@ -39,6 +39,9 @@ var needs_food: bool = false
 var carrying_crops: int = 0
 var carrying_wood: int = 0
 var carrying_stone: int = 0
+var carrying_fur_charm: int = 0  
+var carrying_noble_trinket: int = 0 
+var carrying_planks: int = 0
 var pending_unassignment: bool = false
 var walking_toward: String = ""
 
@@ -219,6 +222,12 @@ func handle_idle_state():
 				handle_resource_worker_cycle()
 		elif assigned_job.job_type == Job.JobType.BUILDER:
 			handle_builder_logic()
+		elif assigned_job.job_type == Job.JobType.RABBIT_HANDLER:
+			handle_rabbit_handler_logic()
+		elif assigned_job.job_type == Job.JobType.ORNAMENT_CRAFTER: 
+			handle_ornament_crafter_logic()   
+		elif assigned_job.job_type == Job.JobType.PLANK_WORKER:  
+			handle_plank_worker_logic()                   
 		# REMOVED: KITCHEN_WORKER logic is no longer needed
 	else:
 		go_to_house_idle()
@@ -377,6 +386,162 @@ func handle_stone_gatherer_logic():
 			else:
 				worker_state = WorkerState.GOING_TO_SOURCE
 				handle_stone_gatherer_logic()
+				
+
+func handle_rabbit_handler_logic():
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			var rabbit_hutch = assigned_job.workplace
+			if rabbit_hutch and rabbit_hutch.has_method("get_work_position"):
+				var hutch_entry = rabbit_hutch.get_work_position()
+				if global_position.distance_to(hutch_entry) > 1.5:
+					print("Walking to rabbit hutch entry point: ", hutch_entry)
+					walk_to_position(hutch_entry, "rabbit_hutch")
+				else:
+					# We're at the hutch, start working
+					worker_state = WorkerState.GATHERING
+					start_working()
+		
+		WorkerState.GATHERING:
+			# Stay at hutch and work - the hutch handles production automatically
+			# Just need to periodically "work" to keep the system active
+			if current_state == State.IDLE:
+				start_working()
+
+func handle_ornament_crafter_logic():
+	var ornament_workshop = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			# Go to workshop initially
+			if ornament_workshop and ornament_workshop.has_method("get_work_position"):
+				var workshop_entry = ornament_workshop.get_work_position()
+				if global_position.distance_to(workshop_entry) > 1.5:
+					print("Walking to ornament workshop entry point: ", workshop_entry)
+					walk_to_position(workshop_entry, "ornament_workshop")
+		
+		WorkerState.GATHERING:
+			# At workshop - check if we need to collect resources or if we're waiting for craft
+			if ornament_workshop.is_crafting:
+				# Just wait at workshop while crafting
+				if current_state == State.IDLE:
+					start_working()  # Keep working animation while waiting
+			else:
+				# Check what resources we need to collect
+				var needed = ornament_workshop.get_needed_resources()
+				
+				if needed["wood"] > 0 and carrying_wood == 0:
+					# Need to get wood
+					var wood_storage = get_wood_storage()
+					if wood_storage and wood_storage.stored_wood > 0:
+						worker_state = WorkerState.GOING_TO_WOOD_STORAGE
+						walk_to_position(wood_storage.get_work_position(), "wood_storage")
+						return
+				
+				if needed["stone"] > 0 and carrying_stone == 0:
+					# Need to get stone
+					var stone_storage = get_stone_storage()
+					if stone_storage and stone_storage.stored_stone > 0:
+						worker_state = WorkerState.GOING_TO_STONE_STORAGE
+						walk_to_position(stone_storage.get_work_position(), "stone_storage")
+						return
+				
+				# If we have resources to deliver
+				if carrying_wood > 0 or carrying_stone > 0:
+					worker_state = WorkerState.DELIVERING_TO_BUILD
+					start_working()  # Deliver resources
+				
+				# Check if there's a finished item to collect
+				if ornament_workshop.has_method("has_finished_item") and ornament_workshop.has_finished_item():
+					worker_state = WorkerState.GOING_TO_STORAGE
+					# Will be handled in the delivery logic
+		
+		WorkerState.GOING_TO_WOOD_STORAGE:
+			# Handled in arrival logic
+			pass
+		
+		WorkerState.GOING_TO_STONE_STORAGE:
+			# Handled in arrival logic
+			pass
+		
+		WorkerState.GOING_TO_STORAGE:
+			# Going to warehouse with finished product
+			var warehouse = get_warehouse()
+			if warehouse and warehouse.has_method("get_work_position"):
+				var warehouse_entry = warehouse.get_work_position()
+				if global_position.distance_to(warehouse_entry) > 1.5:
+					print("Walking to warehouse with finished ornament: ", warehouse_entry)
+					walk_to_position(warehouse_entry, "warehouse")
+		
+		WorkerState.DELIVERING:
+			# Delivering finished product to warehouse
+			if current_state == State.IDLE:
+				start_working()
+
+func handle_plank_worker_logic():
+	var plank_workshop = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			# Go to workshop initially
+			if plank_workshop and plank_workshop.has_method("get_work_position"):
+				var workshop_entry = plank_workshop.get_work_position()
+				if global_position.distance_to(workshop_entry) > 1.5:
+					print("Walking to plank workshop entry point: ", workshop_entry)
+					walk_to_position(workshop_entry, "plank_workshop")
+		
+		WorkerState.GATHERING:
+			# At workshop - check what we need to do
+			if plank_workshop.is_crafting:
+				# Wait at workshop while crafting
+				if current_state == State.IDLE:
+					start_working()  # Keep working animation while waiting
+			elif plank_workshop.has_finished_planks():
+				# Pick up finished planks and take to storage
+				worker_state = WorkerState.GOING_TO_STORAGE
+				start_working()  # Work animation to pick up planks
+			else:
+				# Check if we need wood
+				var needed_wood = plank_workshop.get_needed_wood()
+				if needed_wood > 0 and carrying_wood == 0:
+					var wood_storage = get_wood_storage()
+					if wood_storage and wood_storage.stored_wood > 0:
+						worker_state = WorkerState.GOING_TO_WOOD_STORAGE
+						walk_to_position(wood_storage.get_work_position(), "wood_storage")
+						return
+				
+				# If we have wood to deliver
+				if carrying_wood > 0:
+					worker_state = WorkerState.DELIVERING_TO_BUILD
+					start_working()  # Deliver wood
+				
+				# Otherwise just keep working/waiting
+				if current_state == State.IDLE:
+					start_working()
+		
+		WorkerState.GOING_TO_WOOD_STORAGE:
+			# Handled in arrival logic
+			pass
+		
+		WorkerState.GOING_TO_STORAGE:
+			# Going to plank storage with finished planks
+			if carrying_planks > 0:
+				var plank_storage = get_plank_storage()
+				if plank_storage and plank_storage.has_method("get_work_position"):
+					# Check if storage can accept planks
+					if not plank_storage.can_accept_planks(carrying_planks):
+						print(villager_name, " waiting - plank storage full!")
+						return
+					
+					var storage_entry = plank_storage.get_work_position()
+					if global_position.distance_to(storage_entry) > 1.5:
+						print("Walking to plank storage: ", storage_entry)
+						walk_to_position(storage_entry, "plank_storage")
+		
+		WorkerState.DELIVERING:
+			# Delivering planks to storage
+			if current_state == State.IDLE:
+				start_working()
 
 func go_to_house_idle():
 	if home_house:
@@ -435,7 +600,12 @@ func check_arrival_action():
 				handle_stone_gatherer_arrival()
 			Job.JobType.BUILDER:
 				handle_builder_arrival()
-			# REMOVED: KITCHEN_WORKER case
+			Job.JobType.RABBIT_HANDLER: 
+				handle_rabbit_handler_arrival() 
+			Job.JobType.ORNAMENT_CRAFTER: 
+				handle_ornament_crafter_arrival() 
+			Job.JobType.PLANK_WORKER: 
+				handle_plank_worker_arrival()  
 
 func handle_farm_worker_arrival():
 	var farm = assigned_job.workplace
@@ -512,6 +682,103 @@ func handle_stone_gatherer_arrival():
 					worker_state = WorkerState.DELIVERING
 					deliver_stone_to_storage()
 
+func handle_rabbit_handler_arrival():
+	var rabbit_hutch = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if rabbit_hutch and rabbit_hutch.has_method("get_work_position"):
+				var hutch_entry = rabbit_hutch.get_work_position()
+				if global_position.distance_to(hutch_entry) < 2.0:
+					print("At rabbit hutch entry, teleporting to work spot")
+					var work_spot = rabbit_hutch.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.GATHERING
+					
+					# Notify the hutch that we've arrived
+					if rabbit_hutch.has_method("assign_villager"):
+						rabbit_hutch.assign_villager(self)
+					
+					start_working()
+
+func handle_ornament_crafter_arrival():
+	var ornament_workshop = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if ornament_workshop and ornament_workshop.has_method("get_work_position"):
+				var workshop_entry = ornament_workshop.get_work_position()
+				if global_position.distance_to(workshop_entry) < 2.0:
+					print("At ornament workshop entry, teleporting to work spot")
+					var work_spot = ornament_workshop.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.GATHERING
+					
+					# Notify workshop we've arrived
+					if ornament_workshop.has_method("assign_villager"):
+						ornament_workshop.assign_villager(self)
+					
+					start_working()
+		
+		WorkerState.GOING_TO_WOOD_STORAGE:
+			var wood_storage = get_wood_storage()
+			if wood_storage and wood_storage.get_work_position().distance_to(global_position) < 2.0:
+				print("At wood storage for crafting, picking up wood")
+				global_position = wood_storage.get_actual_work_spot()
+				worker_state = WorkerState.PICKING_UP_RESOURCES
+				start_working()
+		
+		WorkerState.GOING_TO_STONE_STORAGE:
+			var stone_storage = get_stone_storage()
+			if stone_storage and stone_storage.get_work_position().distance_to(global_position) < 2.0:
+				print("At stone storage for crafting, picking up stone")
+				global_position = stone_storage.get_actual_work_spot()
+				worker_state = WorkerState.PICKING_UP_RESOURCES
+				start_working()
+		
+		WorkerState.GOING_TO_STORAGE:
+			var warehouse = get_warehouse()
+			if warehouse and warehouse.get_work_position().distance_to(global_position) < 2.0:
+				print("At warehouse for ornament delivery")
+				global_position = warehouse.get_actual_work_spot()
+				worker_state = WorkerState.DELIVERING
+				start_working()
+
+func handle_plank_worker_arrival():
+	var plank_workshop = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.GOING_TO_SOURCE:
+			if plank_workshop and plank_workshop.has_method("get_work_position"):
+				var workshop_entry = plank_workshop.get_work_position()
+				if global_position.distance_to(workshop_entry) < 2.0:
+					print("At plank workshop entry, teleporting to work spot")
+					var work_spot = plank_workshop.get_actual_work_spot()
+					global_position = work_spot
+					worker_state = WorkerState.GATHERING
+					
+					# Notify workshop we've arrived
+					if plank_workshop.has_method("assign_villager"):
+						plank_workshop.assign_villager(self)
+					
+					start_working()
+		
+		WorkerState.GOING_TO_WOOD_STORAGE:
+			var wood_storage = get_wood_storage()
+			if wood_storage and wood_storage.get_work_position().distance_to(global_position) < 2.0:
+				print("At wood storage for plank crafting, picking up wood")
+				global_position = wood_storage.get_actual_work_spot()
+				worker_state = WorkerState.PICKING_UP_RESOURCES
+				start_working()
+		
+		WorkerState.GOING_TO_STORAGE:
+			var plank_storage = get_plank_storage()
+			if plank_storage and plank_storage.get_work_position().distance_to(global_position) < 2.0:
+				print("At plank storage for delivery")
+				global_position = plank_storage.get_actual_work_spot()
+				worker_state = WorkerState.DELIVERING
+				start_working()
+
 func handle_working_state(delta):
 	work_timer -= delta
 	if work_timer <= 0:
@@ -545,7 +812,12 @@ func perform_job_action():
 			perform_stone_gathering()
 		Job.JobType.BUILDER:
 			perform_builder_work()
-		# REMOVED: KITCHEN_WORKER case
+		Job.JobType.RABBIT_HANDLER: 
+			perform_rabbit_handler_work()  
+		Job.JobType.ORNAMENT_CRAFTER:
+			perform_ornament_crafter_work() 
+		Job.JobType.PLANK_WORKER: 
+			perform_plank_worker_work()  
 
 func perform_farm_work():
 	var farm = assigned_job.workplace
@@ -620,6 +892,211 @@ func perform_stone_gathering():
 			var stone_storage = get_stone_storage()
 			if stone_storage:
 				walk_to_position(stone_storage.get_work_position(), "stone_storage")
+
+func perform_rabbit_handler_work():
+	var rabbit_hutch = assigned_job.workplace
+	if rabbit_hutch:
+		print(villager_name, " is tending to the rabbits")
+		# The hutch handles all the production logic automatically
+		# We just need to stay here and keep working
+		worker_state = WorkerState.GATHERING
+		
+		# Change color to indicate working with animals (light brown)
+		var material = mesh_instance.material_override as StandardMaterial3D
+		if material:
+			material.albedo_color = Color(0.8, 0.6, 0.4)  # Light brown for rabbit work
+
+func perform_ornament_crafter_work():
+	var ornament_workshop = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.PICKING_UP_RESOURCES:
+			# Pick up resources for crafting
+			var wood_storage = get_wood_storage()
+			var stone_storage = get_stone_storage()
+			
+			# Check if we're at wood storage and need wood
+			if wood_storage and global_position.distance_to(wood_storage.get_actual_work_spot()) < 1.0:
+				var needed = ornament_workshop.get_needed_resources()
+				if needed["wood"] > 0 and wood_storage.stored_wood > 0:
+					var amount_to_take = min(needed["wood"], wood_storage.stored_wood)
+					wood_storage.remove_wood(amount_to_take)
+					carrying_wood = amount_to_take
+					
+					# Change color to indicate carrying wood
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color(0.6, 0.4, 0.2)  # Brown for wood
+					print(villager_name, " picked up ", amount_to_take, " wood for crafting")
+			
+			# Check if we're at stone storage and need stone
+			elif stone_storage and global_position.distance_to(stone_storage.get_actual_work_spot()) < 1.0:
+				var needed = ornament_workshop.get_needed_resources()
+				if needed["stone"] > 0 and stone_storage.stored_stone > 0:
+					var amount_to_take = min(needed["stone"], stone_storage.stored_stone)
+					stone_storage.remove_stone(amount_to_take)
+					carrying_stone = amount_to_take
+					
+					# Change color to indicate carrying stone
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color.GRAY
+					print(villager_name, " picked up ", amount_to_take, " stone for crafting")
+			
+			# Return to workshop
+			worker_state = WorkerState.GOING_TO_SOURCE
+			var storage_exit = Vector3.ZERO
+			if carrying_wood > 0:
+				storage_exit = wood_storage.get_work_position()
+			elif carrying_stone > 0:
+				storage_exit = stone_storage.get_work_position()
+			
+			if storage_exit != Vector3.ZERO:
+				global_position = storage_exit
+				global_position.y = 0.1
+			
+			walk_to_position(ornament_workshop.get_work_position(), "ornament_workshop")
+		
+		WorkerState.DELIVERING_TO_BUILD:
+			# Deliver resources to workshop
+			if carrying_wood > 0:
+				ornament_workshop.deliver_resource("wood", carrying_wood)
+				carrying_wood = 0
+				print(villager_name, " delivered wood for crafting")
+			
+			if carrying_stone > 0:
+				ornament_workshop.deliver_resource("stone", carrying_stone)
+				carrying_stone = 0
+				print(villager_name, " delivered stone for crafting")
+			
+			# Reset appearance and continue working at workshop
+			reset_appearance()
+			worker_state = WorkerState.GATHERING
+		
+		WorkerState.GATHERING:
+			# Just working/waiting at workshop
+			print(villager_name, " is working at ornament workshop")
+			
+			# Change color to indicate crafting work (purple)
+			var material = mesh_instance.material_override as StandardMaterial3D
+			if material:
+				material.albedo_color = Color(0.7, 0.3, 0.7)  # Purple for crafting
+		
+		WorkerState.DELIVERING:
+			# Deliver finished product to warehouse
+			var warehouse = get_warehouse()
+			if warehouse:
+				var recipe = ornament_workshop.get_selected_recipe()
+				var item_type = recipe["output_item"]
+				
+				if warehouse.add_trade_good(item_type, 1):
+					print(villager_name, " delivered 1 ", item_type, " to warehouse")
+					
+					# Reset carrying flags
+					carrying_fur_charm = 0
+					carrying_noble_trinket = 0
+					reset_appearance()
+					
+					# Return to workshop
+					worker_state = WorkerState.GOING_TO_SOURCE
+					var warehouse_exit = warehouse.get_work_position()
+					global_position = warehouse_exit
+					global_position.y = 0.1
+					
+					walk_to_position(ornament_workshop.get_work_position(), "ornament_workshop")
+
+func perform_plank_worker_work():
+	var plank_workshop = assigned_job.workplace
+	
+	match worker_state:
+		WorkerState.PICKING_UP_RESOURCES:
+			# Pick up wood from wood storage
+			var wood_storage = get_wood_storage()
+			if wood_storage and global_position.distance_to(wood_storage.get_actual_work_spot()) < 1.0:
+				var needed_wood = plank_workshop.get_needed_wood()
+				if needed_wood > 0 and wood_storage.stored_wood > 0:
+					var amount_to_take = min(needed_wood, wood_storage.stored_wood)
+					wood_storage.remove_wood(amount_to_take)
+					carrying_wood = amount_to_take
+					
+					# Change color to indicate carrying wood
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color(0.6, 0.4, 0.2)  # Brown for wood
+					print(villager_name, " picked up ", amount_to_take, " wood for plank crafting")
+			
+			# Return to workshop
+			worker_state = WorkerState.GOING_TO_SOURCE
+			var storage_exit = wood_storage.get_work_position()
+			global_position = storage_exit
+			global_position.y = 0.1
+			
+			walk_to_position(plank_workshop.get_work_position(), "plank_workshop")
+		
+		WorkerState.DELIVERING_TO_BUILD:
+			# Deliver wood to workshop
+			if carrying_wood > 0:
+				plank_workshop.deliver_wood(carrying_wood)
+				carrying_wood = 0
+				print(villager_name, " delivered wood for plank crafting")
+			
+			# Reset appearance and continue working at workshop
+			reset_appearance()
+			worker_state = WorkerState.GATHERING
+		
+		WorkerState.GATHERING:
+			# Pick up finished planks or just work/wait
+			if plank_workshop.has_finished_planks():
+				var planks_collected = plank_workshop.collect_finished_planks()
+				if planks_collected > 0:
+					carrying_planks = planks_collected
+					
+					# Change color to indicate carrying planks (light brown)
+					var material = mesh_instance.material_override as StandardMaterial3D
+					if material:
+						material.albedo_color = Color(0.8, 0.6, 0.3)  # Light brown for planks
+					
+					print(villager_name, " collected ", planks_collected, " planks")
+					worker_state = WorkerState.GOING_TO_STORAGE
+					
+					# Teleport to workshop exit
+					var workshop_exit = plank_workshop.get_work_position()
+					global_position = workshop_exit
+					global_position.y = 0.1
+					
+					# Go to plank storage
+					var plank_storage = get_plank_storage()
+					if plank_storage:
+						walk_to_position(plank_storage.get_work_position(), "plank_storage")
+			else:
+				# Just working at workshop
+				print(villager_name, " is working at plank workshop")
+				
+				# Change color to indicate plank work (yellow-brown)
+				var material = mesh_instance.material_override as StandardMaterial3D
+				if material:
+					material.albedo_color = Color(0.8, 0.7, 0.4)  # Yellow-brown for plank work
+		
+		WorkerState.DELIVERING:
+			# Deliver planks to storage
+			var plank_storage = get_plank_storage()
+			if plank_storage and carrying_planks > 0:
+				if plank_storage.add_planks(carrying_planks):
+					print(villager_name, " delivered ", carrying_planks, " planks to storage")
+					carrying_planks = 0
+					reset_appearance()
+					
+					# Return to workshop
+					worker_state = WorkerState.GOING_TO_SOURCE
+					var storage_exit = plank_storage.get_work_position()
+					global_position = storage_exit
+					global_position.y = 0.1
+					
+					walk_to_position(plank_workshop.get_work_position(), "plank_workshop")
+				else:
+					print(villager_name, " cannot deliver planks - storage full!")
+					# Wait at storage
+					return
 
 func deliver_crops_to_kitchen():
 	var kitchen = get_kitchen()
@@ -899,6 +1376,20 @@ func get_stone_storage() -> Node3D:
 			return child
 	return null
 
+func get_warehouse() -> Node3D:
+	var village = get_parent()
+	for child in village.get_children():
+		if child.has_method("is_warehouse"):
+			return child
+	return null
+
+func get_plank_storage() -> Node3D:
+	var village = get_parent()
+	for child in village.get_children():
+		if child.has_method("is_plank_storage"):
+			return child
+	return null
+
 # Job assignment functions
 func assign_job(job: Job):
 	if assigned_job and assigned_job != job:
@@ -934,14 +1425,49 @@ func assign_job(job: Job):
 				carrying_crops = 0
 				carrying_wood = 0
 				carrying_stone = 0
-			# REMOVED: KITCHEN_WORKER case
+			Job.JobType.RABBIT_HANDLER: 
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+				carrying_stone = 0
+			Job.JobType.ORNAMENT_CRAFTER:  
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+				carrying_stone = 0
+				carrying_fur_charm = 0
+				carrying_noble_trinket = 0
+			Job.JobType.PLANK_WORKER:  # ADD THIS CASE
+				worker_state = WorkerState.GOING_TO_SOURCE
+				carrying_crops = 0
+				carrying_wood = 0
+				carrying_stone = 0
+				carrying_planks = 0
 		
 		# Reset visual appearance
 		reset_appearance()
 
 func unassign_job():
 	if assigned_job:
-		var has_resources = carrying_crops > 0 or carrying_wood > 0 or carrying_stone > 0
+		# Special handling for rabbit handler - notify hutch
+		if assigned_job.job_type == Job.JobType.RABBIT_HANDLER:
+			var rabbit_hutch = assigned_job.workplace
+			if rabbit_hutch and rabbit_hutch.has_method("remove_villager"):
+				rabbit_hutch.remove_villager()
+		
+		# Special handling for ornament crafter - notify workshop  # ADD THIS BLOCK
+		elif assigned_job.job_type == Job.JobType.ORNAMENT_CRAFTER:
+			var ornament_workshop = assigned_job.workplace
+			if ornament_workshop and ornament_workshop.has_method("remove_villager"):
+				ornament_workshop.remove_villager()
+		
+		# Special handling for plank worker - notify workshop  # ADD THIS BLOCK
+		elif assigned_job.job_type == Job.JobType.PLANK_WORKER:
+			var plank_workshop = assigned_job.workplace
+			if plank_workshop and plank_workshop.has_method("remove_villager"):
+				plank_workshop.remove_villager()
+		
+		var has_resources = carrying_crops > 0 or carrying_wood > 0 or carrying_stone > 0 or carrying_planks > 0
 		
 		if has_resources:
 			# Check if we can deliver resources
@@ -999,6 +1525,7 @@ func complete_pending_unassignment():
 		carrying_crops = 0
 		carrying_wood = 0
 		carrying_stone = 0
+		carrying_planks = 0
 		pending_unassignment = false
 		reset_appearance()
 
