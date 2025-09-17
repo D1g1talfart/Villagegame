@@ -280,7 +280,6 @@ func add_job_assignment_section():
 func get_job_display_name(job_type: Job.JobType) -> String:
 	match job_type:
 		Job.JobType.FARM_WORKER: return "Farm Worker"
-		Job.JobType.KITCHEN_WORKER: return "Kitchen Worker"
 		Job.JobType.WOOD_GATHERER: return "Wood Gatherer"
 		Job.JobType.STONE_GATHERER: return "Stone Gatherer"
 		Job.JobType.BUILDER: return "Builder"

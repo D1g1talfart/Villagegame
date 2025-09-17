@@ -74,6 +74,20 @@ func setup_building_data():
 		2                       # max 2
 ))
 	
+		# Wood Storage - Available at level 3
+	available_buildings.append(BuildingData.new(
+		BuildingData.BuildingType.WOOD_STORAGE, 
+		"Wood Storage", 
+		"Stones Raw wood",
+		[3],                # Available at level 3
+		20,                 # wood cost
+		5,                  # stone cost
+		500,                # gold cost
+		Vector2i(2, 2),     # building_size
+		"res://wood_storage.tscn",                 # path
+		2                   # max 1
+))
+	
 	# RABBIT HUTCH - Available at level 3
 	available_buildings.append(BuildingData.new(
 		BuildingData.BuildingType.RABBIT_HUTCH, 

@@ -49,8 +49,6 @@ func grid_to_world(grid_pos: Vector2i) -> Vector3:
 	return Vector3(grid_pos.x, 0.1, grid_pos.y)
 
 func move_to_position(target_world_pos: Vector3) -> bool:
-	print("=== GRID MOVEMENT ===")
-	print("Moving from ", villager.global_position, " to ", target_world_pos)
 	
 	final_destination = target_world_pos  # Store for recalculation
 	return recalculate_path()
@@ -70,7 +68,7 @@ func recalculate_path() -> bool:
 		print("No path found!")
 		return false
 	
-	print("Path found with ", current_path.size(), " waypoints: ", current_path)
+	
 	
 	current_waypoint_index = 0
 	is_moving = true
@@ -91,7 +89,6 @@ func set_next_target():
 	movement_direction = (target_world_position - current_position).normalized()
 	distance_to_current_target = current_position.distance_to(target_world_position)
 	
-	print("Next target: ", waypoint_grid, " (distance: ", distance_to_current_target, ")")
 
 func check_path_still_valid() -> bool:
 	# Check if any of the remaining waypoints in our path are now blocked
@@ -160,7 +157,6 @@ func finish_movement():
 	villager.velocity = Vector3.ZERO
 	villager.global_position.y = 0.1
 	movement_finished.emit()
-	print("Grid movement finished!")
 
 func stop_movement():
 	is_moving = false

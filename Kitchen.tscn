@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://bmct36s5jv107"]
+[gd_scene load_steps=23 format=3 uid="uid://bmct36s5jv107"]
 
 [ext_resource type="Script" uid="uid://daqo56o82fbae" path="res://Kitchen.gd" id="1_vloss"]
 [ext_resource type="Material" uid="uid://c624t7d8ewtut" path="res://Materials/Dirtreal.tres" id="2_eqcb7"]
@@ -20,7 +20,7 @@ bottom_radius = 0.2
 
 [sub_resource type="TorusMesh" id="TorusMesh_axvxv"]
 material = ExtResource("2_ihhv2")
-inner_radius = 0.8
+inner_radius = 0.75
 outer_radius = 0.9
 rings = 20
 ring_segments = 3
@@ -37,31 +37,63 @@ material = ExtResource("3_rlrs5")
 radius = 0.8
 height = 0.001
 
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rlrs5"]
-emission_shape_scale = Vector3(0.565, 0.51, 0.675)
+[sub_resource type="Curve" id="Curve_eqcb7"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_pvymr"]
+curve = SubResource("Curve_eqcb7")
+
+[sub_resource type="Curve" id="Curve_i5ktm"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_fn2rm"]
+curve = SubResource("Curve_i5ktm")
+
+[sub_resource type="Gradient" id="Gradient_relra"]
+colors = PackedColorArray(0.732259, 0.889803, 0.99883, 1, 0.61, 0.61, 0.61, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_bcobm"]
+gradient = SubResource("Gradient_relra")
+
+[sub_resource type="Curve" id="Curve_781an"]
+_data = [Vector2(0, 0.561798), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_shjfu"]
+curve = SubResource("Curve_781an")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_v1rad"]
+emission_shape_scale = Vector3(1, 0, 1)
 emission_shape = 6
-emission_ring_axis = Vector3(0, 90, 0)
-emission_ring_height = 0.0
-emission_ring_radius = 1.0
-emission_ring_inner_radius = 0.0
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 1.0
+emission_ring_radius = 0.0
+emission_ring_inner_radius = 0.72
 emission_ring_cone_angle = 90.0
-angle_min = -720.0
-angle_max = 720.0
-direction = Vector3(0, 1, 0)
-spread = 88.373
-initial_velocity_min = 0.4
-initial_velocity_max = 0.75
+angle_min = -173.8
+angle_max = 149.0
+angle_curve = SubResource("CurveTexture_fn2rm")
+spread = 114.398
+initial_velocity_min = 0.04
+initial_velocity_max = 0.14
 gravity = Vector3(0, 1, 0)
+scale_max = 2.0
+scale_curve = SubResource("CurveTexture_shjfu")
+color_ramp = SubResource("GradientTexture1D_bcobm")
+alpha_curve = SubResource("CurveTexture_pvymr")
+collision_mode = 2
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rlrs5"]
-albedo_color = Color(0.5915, 0.62855, 0.65, 1)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5yp4l"]
+transparency = 1
+no_depth_test = true
+vertex_color_use_as_albedo = true
 
-[sub_resource type="SphereMesh" id="SphereMesh_eqcb7"]
-material = SubResource("StandardMaterial3D_rlrs5")
-radius = 0.03
-height = 0.06
-radial_segments = 5
-rings = 5
+[sub_resource type="SphereMesh" id="SphereMesh_4o4eo"]
+material = SubResource("StandardMaterial3D_5yp4l")
+radius = 0.02
+height = 0.04
 
 [node name="Kitchen" type="StaticBody3D"]
 script = ExtResource("1_vloss")
@@ -111,7 +143,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.00571585, 1.78026, -0.01821
 mesh = SubResource("SphereMesh_axvxv")
 
 [node name="Steam" type="GPUParticles3D" parent="Decorations/Couldron"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.66194, 0)
-amount = 40
-process_material = SubResource("ParticleProcessMaterial_rlrs5")
-draw_pass_1 = SubResource("SphereMesh_eqcb7")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.79391, 0)
+amount = 18
+process_material = SubResource("ParticleProcessMaterial_v1rad")
+draw_pass_1 = SubResource("SphereMesh_4o4eo")

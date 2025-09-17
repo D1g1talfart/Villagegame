@@ -1,8 +1,8 @@
-# Job.gd - Add wood gathering job type
+# Job.gd - Remove KITCHEN_WORKER
 extends RefCounted
 class_name Job
 
-enum JobType { IDLE, FARM_WORKER, KITCHEN_WORKER, WOOD_GATHERER, STONE_GATHERER, BUILDER }
+enum JobType { IDLE, FARM_WORKER, WOOD_GATHERER, STONE_GATHERER, BUILDER }  # Removed KITCHEN_WORKER
 
 var job_type: JobType
 var workplace: Node3D

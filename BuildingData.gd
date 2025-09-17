@@ -5,6 +5,7 @@ class_name BuildingData
 enum BuildingType { 
 	FARM, 
 	HOUSE, 
+	WOOD_STORAGE,
 	GOLD_STORAGE,
 	STONE_STORAGE,
 	RABBIT_HUTCH,

@@ -23,7 +23,6 @@ func _init(size: Vector2i):
 
 func set_blocked_tiles(tiles: Dictionary):
 	blocked_tiles = tiles.duplicate()
-	print("GridPathfinder: Set ", blocked_tiles.size(), " blocked tiles")
 
 func is_tile_walkable(pos: Vector2i) -> bool:
 	# Check bounds
@@ -79,16 +78,10 @@ func can_move_diagonally(from: Vector2i, to: Vector2i) -> bool:
 	var side1 = from + Vector2i(diff.x, 0)  # Horizontal adjacent
 	var side2 = from + Vector2i(0, diff.y)  # Vertical adjacent
 	
-	# DEBUG: Print what we're checking
-	print("Diagonal check from ", from, " to ", to)
-	print("  Checking side1: ", side1, " (walkable: ", is_tile_walkable(side1), ")")
-	print("  Checking side2: ", side2, " (walkable: ", is_tile_walkable(side2), ")")
-	
 	if not is_tile_walkable(side1) or not is_tile_walkable(side2):
 		print("  BLOCKED diagonal movement - can't cut through corner")
 		return false  # Can't cut through corner
 	
-	print("  ALLOWED diagonal movement")
 	return true
 
 func heuristic(a: Vector2i, b: Vector2i) -> float:
@@ -98,11 +91,7 @@ func heuristic(a: Vector2i, b: Vector2i) -> float:
 	return max(dx, dy)
 
 func find_path(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
-	# Add debug info at the start
-	print("=== PATHFINDING DEBUG ===")
-	print("Start: ", start, " (walkable: ", is_tile_walkable(start), ")")
-	print("Goal: ", goal, " (walkable: ", is_tile_walkable(goal), ")")
-	
+
 	if not is_tile_walkable(start):
 		print("GridPathfinder: Start position not walkable: ", start)
 		# Check what's blocking the start position
