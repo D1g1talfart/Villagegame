@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3 uid="uid://mh2hwf1t345n"]
+
+[sub_resource type="Gradient" id="Gradient_ntx3c"]
+offsets = PackedFloat32Array(0, 0.52381, 1)
+colors = PackedColorArray(0.200595, 0.43, 0.0129, 1, 0.56488, 0.69, 0.2484, 1, 0.49602, 0.84, 0.0756, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_mgkdb"]
+gradient = SubResource("Gradient_ntx3c")
+fill_to = Vector2(0.0210526, 0.0157895)
+repeat = 1
+
+[resource]
+albedo_texture = SubResource("GradientTexture2D_mgkdb")

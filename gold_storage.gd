@@ -1,7 +1,7 @@
 # gold_storage.gd - Updated with upgrade system
 extends BuildableBuilding
 
-@export var stored_gold: int = 0
+@export var stored_gold: int = 5000
 @export var max_gold: int = 1000
 @export var building_level: int = 1
 

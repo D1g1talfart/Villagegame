@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3 uid="uid://by253flw1b2iq"]
+
+[sub_resource type="Gradient" id="Gradient_308fe"]
+colors = PackedColorArray(0.79, 0.700467, 0.1185, 1, 0.9, 1, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_duo7n"]
+gradient = SubResource("Gradient_308fe")
+fill_to = Vector2(0.0210526, 0.0157895)
+repeat = 1
+
+[resource]
+diffuse_mode = 3
+specular_mode = 1
+albedo_texture = SubResource("GradientTexture2D_duo7n")
+metallic = 0.95
+metallic_specular = 0.97
+roughness = 0.05

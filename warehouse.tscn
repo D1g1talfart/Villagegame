@@ -1,9 +1,17 @@
-[gd_scene load_steps=4 format=3 uid="uid://b1ux3dc38wlpc"]
+[gd_scene load_steps=7 format=3 uid="uid://b1ux3dc38wlpc"]
 
 [ext_resource type="Script" uid="uid://qdfso4s5ad2u" path="res://warehouse.gd" id="1_wxe3g"]
+[ext_resource type="Material" uid="uid://n6aje1yjxksv" path="res://Materials/Metal.tres" id="2_80x25"]
+[ext_resource type="Material" uid="uid://fros71psmags" path="res://Materials/Soup.tres" id="3_b3c5l"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_s14ew"]
-size = Vector3(3, 0.5, 2)
+material = ExtResource("2_80x25")
+size = Vector3(3, 1, 2)
+
+[sub_resource type="TextMesh" id="TextMesh_bp6rd"]
+material = ExtResource("3_b3c5l")
+text = "Warehouse"
+font_size = 35
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wxe3g"]
 size = Vector3(3, 1, 2)
@@ -12,7 +20,12 @@ size = Vector3(3, 1, 2)
 script = ExtResource("1_wxe3g")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("BoxMesh_s14ew")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(0.926062, -0.377372, -1.64955e-08, 0, -4.37114e-08, 1, -0.377372, -0.926062, -4.04794e-08, 0, 0.504041, 0)
+mesh = SubResource("TextMesh_bp6rd")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("BoxShape3D_wxe3g")

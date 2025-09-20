@@ -4,9 +4,9 @@ extends Node
 signal building_purchased(building_data: BuildingData)
 
 var player_level: int = 1
-var player_wood: int = 0  # Starting with more wood for testing
+var player_wood: int = 0 
 var player_stone: int = 0
-var player_gold: int = 0  # Replaced meals with gold
+var player_gold: int = 0  
 
 var available_buildings: Array[BuildingData] = []
 var building_counts: Dictionary = {}  # BuildingType -> count

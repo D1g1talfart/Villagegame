@@ -1,4 +1,4 @@
-# villager.gd - Updated with hunger system and kitchen worker removed
+# villager.gd - Fixed hunger system
 extends CharacterBody3D
 class_name Villager
 
@@ -30,7 +30,6 @@ enum WorkerState {
 
 var current_state: State = State.IDLE
 var worker_state: WorkerState = WorkerState.GOING_TO_SOURCE
-var previous_worker_state: WorkerState = WorkerState.GOING_TO_SOURCE  # To return after eating
 var assigned_job: Job
 var home_house: BuildableBuilding
 var work_timer: float = 0.0
@@ -117,30 +116,7 @@ func _physics_process(delta):
 			handle_working_state(delta)
 
 func handle_idle_state():
-	# PRIORITY 1: Handle hunger (except farm workers)
-	if needs_food and assigned_job and assigned_job.job_type != Job.JobType.FARM_WORKER:
-		var kitchen = get_kitchen()
-		if kitchen and kitchen.has_method("can_eat") and kitchen.can_eat():
-			if worker_state != WorkerState.GOING_TO_EAT and worker_state != WorkerState.EATING:
-				print(villager_name, " needs food - going to kitchen")
-				previous_worker_state = worker_state
-				worker_state = WorkerState.GOING_TO_EAT
-				walk_to_position(kitchen.get_work_position(), "kitchen_eating")
-				return
-		else:
-			# No food available, wait or continue working
-			print(villager_name, " is hungry but no food available")
-			if not kitchen:
-				# No kitchen - can't eat, continue working
-				needs_food = false
-				hunger_timer = hunger_interval
-	
-	# Handle eating states
-	if worker_state == WorkerState.GOING_TO_EAT or worker_state == WorkerState.EATING:
-		handle_eating_logic()
-		return
-	
-	# PRIORITY 2: Handle pending unassignment
+	# PRIORITY 1: Handle pending unassignment
 	if pending_unassignment and carrying_crops == 0 and carrying_wood == 0 and carrying_stone == 0:
 		complete_pending_unassignment()
 		go_to_house_idle()
@@ -193,7 +169,25 @@ func handle_idle_state():
 					handle_resource_worker_cycle()
 					return
 	
-	# PRIORITY 3: Handle work
+	# PRIORITY 2: Handle eating states
+	if worker_state == WorkerState.GOING_TO_EAT or worker_state == WorkerState.EATING:
+		handle_eating_logic()
+		return
+	
+	# PRIORITY 3: Handle hunger BEFORE starting new work cycle (except farm workers)
+	if should_check_hunger() and not is_carrying_resources():
+		if needs_food:
+			var kitchen = get_kitchen()
+			if kitchen and kitchen.has_method("can_eat") and kitchen.can_eat():
+				print(villager_name, " needs food - going to kitchen")
+				worker_state = WorkerState.GOING_TO_EAT
+				walk_to_position(kitchen.get_work_position(), "kitchen_eating")
+				return
+			else:
+				print(villager_name, " is hungry but no food available - continuing work")
+				# Continue working if no food available
+	
+	# PRIORITY 4: Handle work
 	if assigned_job and assigned_job.should_work():
 		if assigned_job.job_type == Job.JobType.FARM_WORKER or assigned_job.job_type == Job.JobType.WOOD_GATHERER or assigned_job.job_type == Job.JobType.STONE_GATHERER:
 			# Check if we're carrying resources but storage is full
@@ -228,25 +222,27 @@ func handle_idle_state():
 			handle_ornament_crafter_logic()   
 		elif assigned_job.job_type == Job.JobType.PLANK_WORKER:  
 			handle_plank_worker_logic()                   
-		# REMOVED: KITCHEN_WORKER logic is no longer needed
 	else:
 		go_to_house_idle()
 
-# NEW: Eating logic
+# NEW: Helper functions for hunger logic
+func should_check_hunger() -> bool:
+	# Only check hunger for non-farm workers
+	return assigned_job and assigned_job.job_type != Job.JobType.FARM_WORKER
+
+func is_carrying_resources() -> bool:
+	return carrying_crops > 0 or carrying_wood > 0 or carrying_stone > 0 or carrying_planks > 0
+
+# NEW: Simplified eating logic
 func handle_eating_logic():
 	var kitchen = get_kitchen()
 	
-	match worker_state:
-		WorkerState.GOING_TO_EAT:
-			if kitchen and kitchen.has_method("get_work_position"):
-				var kitchen_entry = kitchen.get_work_position()
-				if global_position.distance_to(kitchen_entry) > 1.5:
-					# Still walking to kitchen
-					return
-		
-		WorkerState.EATING:
-			# Currently eating - handled in working state
-			return
+	if worker_state == WorkerState.GOING_TO_EAT:
+		if kitchen and kitchen.has_method("get_work_position"):
+			var kitchen_entry = kitchen.get_work_position()
+			if global_position.distance_to(kitchen_entry) > 1.5:
+				# Still walking to kitchen
+				return
 
 func handle_eating_arrival():
 	var kitchen = get_kitchen()
@@ -277,16 +273,16 @@ func complete_eating():
 			global_position = kitchen_exit
 			global_position.y = 0.1
 			
-			# Return to previous work state
-			worker_state = previous_worker_state
-			print(villager_name, " returning to work state: ", WorkerState.keys()[worker_state])
+			# ALWAYS start fresh work cycle after eating
+			worker_state = WorkerState.GOING_TO_SOURCE
+			print(villager_name, " returning to start of work cycle")
 		else:
 			print(villager_name, " tried to eat but no meals available!")
 			# Stay hungry and try again later
 			var kitchen_exit = kitchen.get_work_position()
 			global_position = kitchen_exit
 			global_position.y = 0.1
-			worker_state = previous_worker_state
+			worker_state = WorkerState.GOING_TO_SOURCE
 
 func handle_resource_worker_cycle():
 	match assigned_job.job_type:
@@ -1098,6 +1094,7 @@ func perform_plank_worker_work():
 					# Wait at storage
 					return
 
+# UPDATED: Delivery functions with hunger check after completion
 func deliver_crops_to_kitchen():
 	var kitchen = get_kitchen()
 	if kitchen and kitchen.has_method("add_crops") and carrying_crops > 0:
@@ -1125,6 +1122,15 @@ func deliver_crops_to_kitchen():
 				if home_house:
 					walk_to_position(home_house.get_entry_position(), "house")
 				return
+			
+			# CHECK HUNGER BEFORE STARTING NEW CYCLE
+			if should_check_hunger() and needs_food:
+				var kitchen_for_eating = get_kitchen()
+				if kitchen_for_eating and kitchen_for_eating.has_method("can_eat") and kitchen_for_eating.can_eat():
+					print(villager_name, " delivered crops and now needs food - staying at kitchen to eat")
+					worker_state = WorkerState.GOING_TO_EAT
+					walk_to_position(kitchen_for_eating.get_work_position(), "kitchen_eating")
+					return
 			
 			worker_state = WorkerState.GOING_TO_SOURCE
 			var farm = assigned_job.workplace
@@ -1158,6 +1164,15 @@ func deliver_wood_to_storage():
 				if home_house:
 					walk_to_position(home_house.get_entry_position(), "house")
 				return
+			
+			# CHECK HUNGER BEFORE STARTING NEW CYCLE
+			if should_check_hunger() and needs_food:
+				var kitchen = get_kitchen()
+				if kitchen and kitchen.has_method("can_eat") and kitchen.can_eat():
+					print(villager_name, " delivered wood and now needs food - going to kitchen")
+					worker_state = WorkerState.GOING_TO_EAT
+					walk_to_position(kitchen.get_work_position(), "kitchen_eating")
+					return
 			
 			worker_state = WorkerState.GOING_TO_SOURCE
 			var heartwood = assigned_job.workplace
@@ -1196,6 +1211,15 @@ func deliver_stone_to_storage():
 				if home_house:
 					walk_to_position(home_house.get_entry_position(), "house")
 				return
+			
+			# CHECK HUNGER BEFORE STARTING NEW CYCLE
+			if should_check_hunger() and needs_food:
+				var kitchen = get_kitchen()
+				if kitchen and kitchen.has_method("can_eat") and kitchen.can_eat():
+					print(villager_name, " delivered stone and now needs food - going to kitchen")
+					worker_state = WorkerState.GOING_TO_EAT
+					walk_to_position(kitchen.get_work_position(), "kitchen_eating")
+					return
 			
 			worker_state = WorkerState.GOING_TO_SOURCE
 			var stone_quarry = assigned_job.workplace
